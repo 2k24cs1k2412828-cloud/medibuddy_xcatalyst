@@ -2,18 +2,20 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 const KIOSK_COOKIE_NAME = 'medicare_kiosk_session';
-const KIOSK_SECRET =
-  process.env.KIOSK_SESSION_SECRET ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  (process.env.NODE_ENV === 'production'
-    ? 'PROD_UNCONFIGURED_KIOSK_SECRET_FAIL_CLOSED'
-    : 'medicare-connect-dev-kiosk-secret-key-2026');
 
 /**
  * Validates the kiosk token signature using standard Web Crypto API.
+ * Fails closed immediately if secrets are unconfigured in production.
  */
 async function isValidKioskToken(token: string | undefined): Promise<{ valid: boolean; patientId?: string }> {
   if (!token) return { valid: false };
+
+  const secret = process.env.KIOSK_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    return { valid: false };
+  }
+  const signingKey = secret || 'medicare-connect-dev-kiosk-secret-key-2026';
+
   const parts = token.split(':');
   if (parts.length !== 3) return { valid: false };
 
@@ -24,7 +26,7 @@ async function isValidKioskToken(token: string | undefined): Promise<{ valid: bo
 
   try {
     const encoder = new TextEncoder();
-    const keyData = encoder.encode(KIOSK_SECRET);
+    const keyData = encoder.encode(signingKey);
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
       keyData,

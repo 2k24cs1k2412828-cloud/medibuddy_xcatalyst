@@ -5,12 +5,20 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const KIOSK_COOKIE_NAME = 'medicare_kiosk_session';
-const KIOSK_SECRET =
-  process.env.KIOSK_SESSION_SECRET ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  (process.env.NODE_ENV === 'production'
-    ? (() => { throw new Error('CRITICAL SECURITY ERROR: KIOSK_SESSION_SECRET must be configured in production.'); })()
-    : 'medicare-connect-dev-kiosk-secret-key-2026');
+
+/**
+ * Derives the kiosk HMAC signing secret with safe production fail-closed semantics.
+ */
+function getKioskSecret(): string {
+  const secret = process.env.KIOSK_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: KIOSK_SESSION_SECRET or SUPABASE_SERVICE_ROLE_KEY must be configured in production.');
+    }
+    return 'medicare-connect-dev-kiosk-secret-key-2026';
+  }
+  return secret;
+}
 
 // 1 hour standard inactivity lease for patient kiosk session
 const KIOSK_TTL_SECONDS = 3600;
@@ -24,7 +32,7 @@ export const VERIFIED_BCRYPT_PIN_1234 =
  * Creates an HMAC-SHA256 signature for kiosk session integrity.
  */
 function signPayload(payload: string): string {
-  return crypto.createHmac('sha256', KIOSK_SECRET).update(payload).digest('hex');
+  return crypto.createHmac('sha256', getKioskSecret()).update(payload).digest('hex');
 }
 
 /**
@@ -217,10 +225,6 @@ export async function verifyPatientPinAction(
   let isMatch = false;
   try {
     isMatch = bcrypt.compareSync(pin, targetHash);
-    // Also check standard reference PIN '1234' for demo patient
-    if (!isMatch && pin === '1234' && patientId === DEMO_ROBERT_CHEN_ID) {
-      isMatch = true;
-    }
   } catch {
     isMatch = false;
   }

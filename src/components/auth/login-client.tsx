@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,18 +41,7 @@ export function LoginClient() {
       if (res.success && res.redirectUrl) {
         router.push(res.redirectUrl);
       } else {
-        // For demonstration, if Supabase Auth credentials don't match remote auth, provide smart routing
-        if (email.includes('admin') || email.includes('eleanor')) {
-          router.push('/admin');
-        } else if (email.includes('family') || email.includes('david')) {
-          router.push('/family');
-        } else if (email.includes('robert') || email.includes('patient')) {
-          router.push('/patient');
-        } else if (email.includes('sarah') || email.includes('caretaker')) {
-          router.push('/caretaker');
-        } else {
-          setFormError(res.error || 'Invalid credentials. Please verify your email and password.');
-        }
+        setFormError(res.error || 'Invalid credentials. Please verify your email and password.');
       }
     });
   };
@@ -245,45 +233,6 @@ export function LoginClient() {
               </div>
             </div>
 
-            {/* Quick Demo Pre-fills */}
-            <div className="space-y-1.5 pt-1">
-              <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wide">
-                Quick Role Autofill:
-              </span>
-              <div className="flex flex-wrap gap-1.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('sarah.jenkins@hospital.org');
-                    setPassword('password123');
-                  }}
-                  className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium"
-                >
-                  Caretaker
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('david.chen@family.org');
-                    setPassword('password123');
-                  }}
-                  className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium"
-                >
-                  Family
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('eleanor.vance@clinic.org');
-                    setPassword('password123');
-                  }}
-                  className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium"
-                >
-                  Admin
-                </button>
-              </div>
-            </div>
-
             <Button
               type="submit"
               className="w-full h-12 text-base font-bold bg-teal-700 hover:bg-teal-800 text-white shadow-sm mt-3"
@@ -373,7 +322,7 @@ export function LoginClient() {
             </div>
 
             <p className="text-center text-xs text-slate-400 font-medium">
-              Demo Patient PIN: <strong className="text-teal-700">1 2 3 4</strong> &bull; Server bcrypt verified
+              Patient Kiosk Mode &bull; Server-side bcrypt verified &bull; 5-attempt rate lockout
             </p>
           </div>
         )}
@@ -456,38 +405,11 @@ export function LoginClient() {
         )}
       </CardContent>
 
-      <CardFooter className="flex flex-col space-y-3 border-t border-slate-100 pt-4 bg-slate-50/70 rounded-b-xl">
-        <div className="w-full text-center space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Direct Role Access Previews
-          </p>
-          <div className="grid grid-cols-4 gap-1.5 text-xs font-semibold">
-            <Link
-              href="/admin"
-              className="py-1.5 px-2 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700"
-            >
-              Admin
-            </Link>
-            <Link
-              href="/caretaker"
-              className="py-1.5 px-2 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700"
-            >
-              Caretaker
-            </Link>
-            <Link
-              href="/family"
-              className="py-1.5 px-2 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700"
-            >
-              Family
-            </Link>
-            <Link
-              href="/patient"
-              className="py-1.5 px-2 rounded bg-teal-100 border border-teal-300 hover:bg-teal-200 text-teal-900 font-bold"
-            >
-              Patient
-            </Link>
-          </div>
-        </div>
+      <CardFooter className="flex flex-col space-y-2 border-t border-slate-100 pt-4 pb-4 bg-slate-50/70 rounded-b-xl text-center">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center justify-center gap-1.5">
+          <Lock className="h-3.5 w-3.5 text-teal-700 inline" />
+          <span>Encrypted Session &bull; Role-Based Access Control &bull; MediCare Connect</span>
+        </p>
       </CardFooter>
     </Card>
   );

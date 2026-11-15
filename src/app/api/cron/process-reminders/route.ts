@@ -12,26 +12,25 @@ import {
   EmailContent,
 } from '@/lib/email/templates';
 
-const CRON_SECRET =
-  process.env.CRON_SECRET ||
-  (process.env.NODE_ENV === 'production'
-    ? 'PROD_UNCONFIGURED_CRON_SECRET_FAIL_CLOSED'
-    : 'medicare-default-cron-secret-token-2026');
-
 /**
  * Validates the Authorization: Bearer <CRON_SECRET> header using timing-safe comparison.
+ * Fails closed immediately if CRON_SECRET is unconfigured in production.
  */
 function isAuthorizedCronRequest(request: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    return false;
+  }
+  const expectedSecret = (secret || 'medicare-default-cron-secret-token-2026').trim();
+
   const authHeader = request.headers.get('authorization') || '';
   if (!authHeader.startsWith('Bearer ')) {
     return false;
   }
 
   const providedToken = authHeader.slice(7).trim();
-  const expectedToken = CRON_SECRET.trim();
-
   const providedBuf = Buffer.from(providedToken, 'utf-8');
-  const expectedBuf = Buffer.from(expectedToken, 'utf-8');
+  const expectedBuf = Buffer.from(expectedSecret, 'utf-8');
 
   if (providedBuf.length !== expectedBuf.length) {
     return false;

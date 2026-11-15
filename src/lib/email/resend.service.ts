@@ -36,7 +36,13 @@ export async function sendEmailViaResend(
   const isRealKey = RESEND_API_KEY && RESEND_API_KEY.startsWith('re_') && !RESEND_API_KEY.includes('placeholder');
 
   if (!isRealKey) {
-    // Graceful simulated delivery mode for testing and sandbox environments
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        success: false,
+        error: 'RESEND_API_KEY must be configured in production.',
+      };
+    }
+    // Graceful simulated delivery mode for development and automated test suites
     const simulatedMessageId = `resend_sim_${crypto.randomUUID()}`;
     return {
       success: true,

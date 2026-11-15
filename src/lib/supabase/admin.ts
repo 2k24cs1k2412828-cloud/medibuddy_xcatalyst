@@ -9,9 +9,13 @@ import { createClient } from "@supabase/supabase-js";
  */
 export function createAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-service-role-key";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  return createClient<any>(supabaseUrl, serviceRoleKey, {
+  if (!serviceRoleKey && process.env.NODE_ENV === 'production') {
+    throw new Error('CRITICAL SECURITY CONFIGURATION: SUPABASE_SERVICE_ROLE_KEY is required in production.');
+  }
+
+  return createClient<any>(supabaseUrl, serviceRoleKey || "placeholder-service-role-key", {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
