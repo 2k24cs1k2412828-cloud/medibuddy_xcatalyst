@@ -101,8 +101,15 @@ export async function signInWithEmail(
       role,
       redirectUrl,
     };
-  } catch (err) {
-    return { success: false, error: String(err) };
+  } catch (err: any) {
+    const msg = err?.message || String(err);
+    if (msg.includes('fetch failed')) {
+      return {
+        success: false,
+        error: 'Unable to reach Supabase backend. Please ensure NEXT_PUBLIC_SUPABASE_URL and Supabase keys are configured in Vercel Project Settings.',
+      };
+    }
+    return { success: false, error: msg };
   }
 }
 
@@ -222,7 +229,14 @@ export async function acceptUserInvitation(formData: {
 
     const redirectUrl = await getRoleDashboardUrl(formData.role);
     return { success: true, role: formData.role, redirectUrl };
-  } catch (err) {
-    return { success: false, error: String(err) };
+  } catch (err: any) {
+    const msg = err?.message || String(err);
+    if (msg.includes('fetch failed')) {
+      return {
+        success: false,
+        error: 'Unable to reach Supabase backend. Please ensure NEXT_PUBLIC_SUPABASE_URL and Supabase keys are configured in Vercel Project Settings.',
+      };
+    }
+    return { success: false, error: msg };
   }
 }
