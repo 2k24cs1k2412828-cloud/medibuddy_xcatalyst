@@ -1,10 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Heart, ShieldCheck } from "lucide-react";
 import { LoginClient } from "@/components/auth/login-client";
 
+export const metadata: Metadata = {
+  title: "Sign In & Patient Kiosk | MediCare Connect",
+  description: "Secure role-based portal login and elderly-friendly patient kiosk access.",
+  alternates: {
+    canonical: "/login",
+  },
+};
+
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-slate-50 text-slate-900">
+    <main className="min-h-screen flex flex-col justify-center items-center p-4 bg-slate-50 text-slate-900">
       {/* Brand Header */}
       <div className="mb-6 text-center space-y-2">
         <Link href="/" className="inline-flex items-center gap-2.5 group">
@@ -28,6 +37,6 @@ export default function LoginPage() {
         <ShieldCheck className="h-4 w-4 text-teal-700" />
         <span>End-to-end encrypted session &bull; Role-based access control</span>
       </div>
-    </div>
+    </main>
   );
 }

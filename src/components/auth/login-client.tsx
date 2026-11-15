@@ -111,9 +111,11 @@ export function LoginClient() {
     <Card className="w-full max-w-md shadow-xl border-slate-200 bg-white">
       <CardHeader className="space-y-1 pb-4">
         {/* Tab Switcher */}
-        <div className="flex rounded-xl bg-slate-100 p-1 mb-2 border border-slate-200">
+        <div className="flex rounded-xl bg-slate-100 p-1 mb-2 border border-slate-200" role="tablist" aria-label="Authentication Method">
           <button
             type="button"
+            role="tab"
+            aria-selected={authMode === 'STANDARD'}
             onClick={() => {
               setAuthMode('STANDARD');
               setFormError(null);
@@ -128,6 +130,8 @@ export function LoginClient() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={authMode === 'PIN'}
             onClick={() => {
               setAuthMode('PIN');
               setFormError(null);
@@ -143,6 +147,8 @@ export function LoginClient() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={authMode === 'INVITE'}
             onClick={() => {
               setAuthMode('INVITE');
               setFormError(null);
@@ -280,11 +286,12 @@ export function LoginClient() {
             </div>
 
             {/* Keypad Grid */}
-            <div className="grid grid-cols-3 gap-2.5 max-w-[280px] mx-auto">
+            <div className="grid grid-cols-3 gap-2.5 max-w-[280px] mx-auto" role="group" aria-label="PIN Keypad">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
                 <button
                   key={digit}
                   type="button"
+                  aria-label={`Digit ${digit}`}
                   disabled={isLocked || isPending}
                   onClick={() => handleKeypadPress(digit)}
                   className="h-14 rounded-2xl border-2 border-slate-200 bg-white hover:bg-slate-100 active:bg-slate-200 text-2xl font-black text-slate-900 shadow-xs transition-colors flex items-center justify-center disabled:opacity-40"
@@ -295,6 +302,7 @@ export function LoginClient() {
 
               <button
                 type="button"
+                aria-label="Clear PIN entry"
                 disabled={isLocked || isPending}
                 onClick={handleClearPin}
                 className="h-14 rounded-2xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-600 uppercase transition-colors flex items-center justify-center disabled:opacity-40"
@@ -304,6 +312,7 @@ export function LoginClient() {
 
               <button
                 type="button"
+                aria-label="Digit 0"
                 disabled={isLocked || isPending}
                 onClick={() => handleKeypadPress('0')}
                 className="h-14 rounded-2xl border-2 border-slate-200 bg-white hover:bg-slate-100 active:bg-slate-200 text-2xl font-black text-slate-900 shadow-xs transition-colors flex items-center justify-center disabled:opacity-40"
@@ -313,6 +322,7 @@ export function LoginClient() {
 
               <button
                 type="button"
+                aria-label="Backspace PIN entry"
                 disabled={isLocked || isPending}
                 onClick={handleBackspacePin}
                 className="h-14 rounded-2xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-600 uppercase transition-colors flex items-center justify-center disabled:opacity-40"
@@ -338,41 +348,44 @@ export function LoginClient() {
             )}
 
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+              <label htmlFor="inviteName" className="block text-xs font-bold uppercase text-slate-700 mb-1">
                 Full Legal Name
               </label>
               <input
+                id="inviteName"
                 type="text"
                 required
                 value={inviteName}
                 onChange={(e) => setInviteName(e.target.value)}
                 placeholder="e.g. Nurse Sarah Jenkins"
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-700/20"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+              <label htmlFor="inviteEmail" className="block text-xs font-bold uppercase text-slate-700 mb-1">
                 Invited Email Address
               </label>
               <input
+                id="inviteEmail"
                 type="email"
                 required
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="name@hospital.org"
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-700/20"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+              <label htmlFor="inviteRole" className="block text-xs font-bold uppercase text-slate-700 mb-1">
                 Role (Select Authorized Circle)
               </label>
               <select
+                id="inviteRole"
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as 'CARETAKER' | 'FAMILY')}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-700/20"
               >
                 <option value="CARETAKER">Clinical Caretaker</option>
                 <option value="FAMILY">Family Member</option>
@@ -380,17 +393,18 @@ export function LoginClient() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+              <label htmlFor="invitePassword" className="block text-xs font-bold uppercase text-slate-700 mb-1">
                 New Password (Minimum 8 chars)
               </label>
               <input
+                id="invitePassword"
                 type="password"
                 required
                 minLength={8}
                 value={invitePassword}
                 onChange={(e) => setInvitePassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-700/20"
               />
             </div>
 
