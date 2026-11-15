@@ -1,9 +1,9 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Heart,
   Pill,
   Users,
   ShieldCheck,
@@ -25,9 +25,14 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-700 text-white shadow-sm group-hover:bg-teal-800 transition-colors">
-              <Heart className="h-5 w-5 fill-white/20" />
-            </div>
+            <Image
+              src="/logo-icon.png"
+              alt="MediCare Connect Logo"
+              width={40}
+              height={40}
+              className="h-10 w-10 object-contain group-hover:scale-105 transition-transform"
+              priority
+            />
             <div>
               <span className="text-xl font-bold tracking-tight text-slate-950">
                 MediCare Connect
@@ -435,9 +440,13 @@ export default function HomePage() {
       <footer className="mt-auto border-t border-slate-200 bg-white py-12 px-4 sm:px-6 lg:px-8 text-sm text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-700 text-white shadow-xs">
-              <Heart className="h-4 w-4 fill-white/20" />
-            </div>
+            <Image
+              src="/logo-icon.png"
+              alt="MediCare Connect Logo"
+              width={36}
+              height={36}
+              className="h-9 w-9 object-contain"
+            />
             <div>
               <p className="font-bold text-slate-900">MediCare Connect</p>
               <p className="text-xs text-slate-500">Elderly Healthcare & Care-Circle Collaboration</p>

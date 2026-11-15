@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/logo.png" alt="MediCare Connect Healthcare Platform" width="420" />
+</p>
+
 # MediCare Connect
 
 > **A collaborative healthcare platform designed to put elderly individuals at the center of medical decisions with dignity, high accessibility, and proactive care-circle coordination.**
@@ -148,17 +152,17 @@ flowchart TD
         - has_patient_access() Helper"]
         
         Tables["Core Relational Tables (11)
-        - patients, prescriptions, dose_logs
-        - appointments, assistance_requests
-        - audit_logs, notification_queue"]
+        - patient_profiles, medications, medication_logs
+        - appointments, assistance_requests, notifications
+        - healthcare_routines, routine_logs, activity_logs"]
         
-        Triggers["Database Triggers
+        Triggers["Database Triggers & RPCs
         - Append-only Audit Enforcer
-        - Automatic Adherence Calculator"]
+        - Atomic Kiosk & Worker RPCs"]
     end
 
     subgraph AlertPipeline["Notification Engine"]
-        WorkerQueue["notification_queue
+        WorkerQueue["notifications
         - Atomic FOR UPDATE SKIP LOCKED
         - Bounded Exponential Backoff"]
         
@@ -184,18 +188,18 @@ flowchart TD
 
 The database schema consists of **11 core relational tables** with strict constraints and foreign keys:
 
-```
+```text
 users (id, email, role, full_name, created_at)
-patients (id, full_name, date_of_birth, emergency_contact, kiosk_pin_hash, pin_failed_attempts, pin_locked_until)
+patient_profiles (id, full_name, date_of_birth, emergency_contact, kiosk_pin_hash, pin_failed_attempts, pin_locked_until)
 patient_access (id, user_id, patient_id, access_level, is_active)
-prescriptions (id, patient_id, medication_name, dosage, frequency, time_of_day, is_active)
-dose_logs (id, prescription_id, patient_id, scheduled_time, action_time, status, skip_reason)
+medications (id, patient_id, medication_name, dosage, frequency, time_of_day, is_active)
+medication_logs (id, medication_id, patient_id, scheduled_time, action_time, status, skip_reason)
 appointments (id, patient_id, caretaker_id, title, scheduled_time, status, location)
+healthcare_routines (id, patient_id, title, routine_type, schedule_time, days_of_week, is_active)
+routine_logs (id, routine_id, patient_id, scheduled_date, scheduled_time, status, completed_at)
 assistance_requests (id, patient_id, urgency, message, status, resolved_by, resolved_at)
-kiosk_sessions (id, patient_id, session_token_hash, expires_at, is_active)
-invitations (id, email, target_role, token_hash, expires_at, accepted_at)
-audit_logs (id, actor_user_id, actor_role, action, entity_type, entity_id, details, created_at)
-notification_queue (id, patient_id, recipient_email, event_type, status, delivery_attempts, worker_lease_until)
+notifications (id, patient_id, recipient_email, event_type, status, delivery_attempts, worker_lease_until)
+activity_logs (id, actor_id, actor_role, action, entity_type, entity_id, details, ip_address, created_at)
 ```
 
 Detailed schema definitions, composite indexes, and SQL migrations are documented in [docs/DATABASE.md](docs/DATABASE.md).

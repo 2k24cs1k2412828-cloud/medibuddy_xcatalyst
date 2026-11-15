@@ -1,11 +1,15 @@
-# MediCare Connect — Production Deployment Guide
+# MediCare Connect — Production Deployment & Runbook
 
 ## 1. Hosting Architecture Overview
 
-MediCare Connect is optimized for production hosting on **Vercel** (Next.js 15 App Router Edge/Serverless runtime) paired with a managed **Supabase (PostgreSQL 15)** database backend and **Resend** transactional email infrastructure.
+MediCare Connect is designed for cloud deployment combining:
+- **Next.js 15 (App Router)** hosted on **Vercel** (Serverless and Edge runtimes).
+- **Supabase (PostgreSQL 15)** for database storage, Auth, and Row-Level Security.
+- **Resend** for transactional email notifications.
+- **External Scheduler** (e.g., cron-job.org or GitHub Actions) triggering periodic medication reminders.
 
-- **Production Live URL**: `https://medibuddyxcatalyst.vercel.app/`
-- **GitHub Repository**: `https://github.com/2k24cs1k2412828-cloud/medibuddy_xcatalyst`
+- **Production Live URL**: [https://medibuddyxcatalyst.vercel.app/](https://medibuddyxcatalyst.vercel.app/)
+- **GitHub Repository**: [https://github.com/2k24cs1k2412828-cloud/medibuddy_xcatalyst](https://github.com/2k24cs1k2412828-cloud/medibuddy_xcatalyst)
 
 ---
 
@@ -13,51 +17,52 @@ MediCare Connect is optimized for production hosting on **Vercel** (Next.js 15 A
 
 Configure the following variables in **Vercel Project Settings -> Environment Variables**:
 
-| Variable Name | Required Scope | Purpose | Example / Format |
+| Variable Name | Exposure Scope | Purpose | Format / Example |
 |---|:---:|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Production & Preview | Supabase project API gateway | `https://xyzproject.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Production & Preview | Supabase public anonymous API key | `eyJhbGciOi...` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Production Only | Server-only key for privileged operations | `eyJhbGciOi...` |
-| `KIOSK_SESSION_SECRET` | Production Only | 64-character high-entropy secret for HMAC session signing | Hex/Base64 string |
-| `CRON_SECRET` | Production Only | Bearer token authenticating notification worker requests | High-entropy string |
-| `RESEND_API_KEY` | Production Only | Resend API key for outbound emails | `re_123456789...` |
-| `RESEND_FROM_EMAIL` | Production Only | Verified sender email address | `alerts@yourdomain.com` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Public / Client | Supabase project API gateway endpoint | `https://<project-ref>.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public / Client | Public anonymous key for client sessions | `eyJhbGciOi...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-Only | Privileged secret key bypassing RLS for administrative RPCs | `eyJhbGciOi...` |
+| `KIOSK_SESSION_SECRET` | Server-Only | 64-character high-entropy secret for HMAC kiosk tokens | High-entropy random string |
+| `CRON_SECRET` | Server-Only | Bearer token authenticating reminder worker requests | High-entropy random string |
+| `RESEND_API_KEY` | Server-Only | Resend API key for outbound transactional emails | `re_123456789...` |
+| `RESEND_FROM_EMAIL` | Server-Only | Verified sender email address | `MediCare Connect <alerts@yourdomain.com>` |
+
+> [!CAUTION]
+> Never commit actual values for these variables to Git. Placeholders only are provided in [.env.example](file:///home/mayanksoni/Downloads/catalyst_medibuddy/.env.example).
 
 ---
 
-## 3. Database Migration Setup (Supabase)
+## 3. Database Migration Runbook (Supabase)
 
-Before launching the Next.js frontend, execute the database migrations in order:
+Before launching the Next.js application, apply the SQL migrations in `supabase/migrations/` in numerical order via the Supabase SQL Editor:
 
-1. Open your Supabase project dashboard -> **SQL Editor**.
-2. Run the numbered migrations from `supabase/migrations/`:
-   - `001_create_core_tables.sql`
-   - `002_create_relationships_and_indexes.sql`
-   - `003_create_authorization_helpers.sql`
-   - `004_enable_rls_and_create_policies.sql`
-   - `005_create_triggers_and_state_validation.sql`
-   - `006_create_secure_rpc_functions.sql`
-   - `007_create_notification_foundation.sql`
-   - `008_add_audit_constraints_and_permissions.sql`
-   - `009_seed_baseline_data.sql` *(optional seed data)*
+1. `001_create_core_tables.sql` — Creates the 11 core tables (`users`, `patient_profiles`, `patient_access`, `medications`, `medication_logs`, `appointments`, `healthcare_routines`, `routine_logs`, `assistance_requests`, `notifications`, `activity_logs`).
+2. `002_create_relationships_and_indexes.sql` — Configures foreign keys, cascading constraints, and performance indexes.
+3. `003_create_authorization_helpers.sql` — Defines `is_admin()` and `has_patient_access()` helper functions.
+4. `004_enable_rls_and_create_policies.sql` — Enables RLS and establishes granular role-based policies on every table.
+5. `005_create_triggers_and_state_validation.sql` — Implements `enforce_append_only_audit` and dose status validation triggers.
+6. `006_create_secure_rpc_functions.sql` — Installs `patient_record_dose_kiosk`, `record_failed_pin_attempt`, and `unlock_patient_passcode`.
+7. `007_create_notification_foundation.sql` — Installs `claim_notifications_batch`, `complete_notification_delivery`, and `fail_notification_delivery`.
+8. `008_add_audit_constraints_and_permissions.sql` — Configures `handle_new_auth_user` trigger linking `auth.users` to `public.users`.
+9. `009_seed_baseline_data.sql` — *(Optional)* Seeds initial baseline synthetic patient and user fixtures for testing.
 
 ---
 
-## 4. Medication Reminder Scheduler Setup
+## 4. Scheduled Reminder Configuration
 
-Medication reminders require periodic triggering of `/api/cron/process-reminders`.
+Medication and appointment reminders require periodic execution of the route handler:
+`GET /api/cron/process-reminders`
 
 > [!IMPORTANT]
-> The **Vercel Hobby** plan supports only daily scheduled cron jobs. For clinical medication reminders, an execution cadence of **every 5 minutes** is recommended.
+> The **Vercel Hobby** plan supports only once-daily scheduled crons. For clinical medication reminders, an execution cadence of **every 5 minutes** (`*/5 * * * *`) is recommended.
 
 ### Setting Up a 5-Minute External Cron Worker
-
-Use an external scheduler service (e.g., [cron-job.org](https://cron-job.org), **Zeplo**, or **GitHub Actions Scheduled Workflows**):
+Using an external cron service (such as [cron-job.org](https://cron-job.org), **Zeplo**, or a scheduled **GitHub Actions workflow**):
 
 - **Target URL**: `https://medibuddyxcatalyst.vercel.app/api/cron/process-reminders`
-- **HTTP Method**: `GET`
+- **HTTP Method**: `GET` (or `POST`)
 - **Schedule**: `*/5 * * * *` (Every 5 minutes)
-- **HTTP Headers**:
+- **Headers**:
   ```http
   Authorization: Bearer <YOUR_CRON_SECRET>
   User-Agent: MediCareConnect-Worker/1.0
@@ -67,10 +72,44 @@ Use an external scheduler service (e.g., [cron-job.org](https://cron-job.org), *
 
 ## 5. Post-Deployment Verification Checklist
 
-After deploying a new release, verify the following endpoints:
+After deploying a new release to production, execute the following checks:
 
-- [ ] **HTTP Headers**: Run `curl -I https://medibuddyxcatalyst.vercel.app/` and verify `x-frame-options: DENY`, `x-content-type-options: nosniff`, and `content-security-policy` are returned.
-- [ ] **Robots Exclusion**: Verify `curl https://medibuddyxcatalyst.vercel.app/robots.txt` blocks `/admin/`, `/caretaker/`, `/family/`, `/patient/`.
-- [ ] **Sitemap Validity**: Verify `curl https://medibuddyxcatalyst.vercel.app/sitemap.xml` returns valid XML.
-- [ ] **Kiosk Access**: Navigate to `/login` -> switch to **Kiosk PIN** -> authenticate with PIN `1234` -> verify redirection to `/patient`.
-- [ ] **Cron Authentication**: Verify `curl https://medibuddyxcatalyst.vercel.app/api/cron/process-reminders` returns `401 Unauthorized` without credentials.
+```bash
+# 1. Verify HTTP Security Headers
+curl -I https://medibuddyxcatalyst.vercel.app/
+# Expect:
+#   x-frame-options: DENY
+#   x-content-type-options: nosniff
+#   content-security-policy: default-src 'self'...
+
+# 2. Verify Robots Configuration
+curl -s https://medibuddyxcatalyst.vercel.app/robots.txt
+# Expect:
+#   Disallow: /admin/
+#   Disallow: /caretaker/
+#   Disallow: /family/
+#   Disallow: /patient/
+#   Disallow: /api/
+
+# 3. Verify Public Sitemap
+curl -s https://medibuddyxcatalyst.vercel.app/sitemap.xml
+# Expect valid XML listing public URLs only (/ and /login)
+
+# 4. Verify Cron Route Protection
+curl -I https://medibuddyxcatalyst.vercel.app/api/cron/process-reminders
+# Expect: HTTP 401 Unauthorized (when called without Bearer token)
+```
+
+---
+
+## 6. Secret Rotation Procedure
+
+1. **`CRON_SECRET`**:
+   - Generate a new high-entropy string (`openssl rand -hex 32`).
+   - Update `CRON_SECRET` in Vercel Project Settings.
+   - Update the Bearer token in your external cron service.
+   - Trigger a manual deployment in Vercel to load the new environment variable.
+2. **`KIOSK_SESSION_SECRET`**:
+   - Rotating this secret invalidates all active kiosk sessions immediately.
+   - Update `KIOSK_SESSION_SECRET` in Vercel and redeploy.
+   - Patient tablets will prompt for PIN re-entry on their next action.

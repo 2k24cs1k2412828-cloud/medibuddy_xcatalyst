@@ -1,19 +1,26 @@
-# MediCare Connect — System Architecture & Technical Specifications
+# MediCare Connect — Technical Architecture & System Specifications
 
 ## 1. System Overview
 
-**MediCare Connect** is a collaborative, accessible healthcare platform architected specifically for elderly care ecosystems. It bridges the critical communication and adherence gap between **Elderly Patients**, **Clinical Caretakers**, **Family Members**, and **Healthcare Administrators**.
+**MediCare Connect** is a collaborative, accessible healthcare platform designed for elderly care coordination. It connects four core stakeholders:
+- **Elderly Patients**: Using an accessible tablet kiosk interface.
+- **Clinical Caretakers**: Managing prescriptions, appointments, and care inquiries.
+- **Family Circles**: Observing daily medication adherence and appointment status.
+- **System Administrators**: Enrolling patients, assigning care teams, and reviewing audit trails.
 
-The application is built on **Next.js 15 (App Router)** with **TypeScript**, powered by a hardened **Supabase (PostgreSQL 15)** database backend, and orchestrated with an automated **Resend transactional email & notification worker engine**.
+The application is implemented using **Next.js 15 (App Router)** with **TypeScript**, a **Supabase (PostgreSQL 15)** database backend with Row-Level Security (RLS), and an asynchronous **Resend** email notification worker pipeline.
 
 ---
 
-## 2. Architectural Principles
+## 2. Core Architectural Principles
 
-1. **Defense-in-Depth Security**: Every sensitive mutation is verified at multiple levels: Next.js middleware, authenticated Server Actions with input validation, and PostgreSQL Row-Level Security (RLS) enforcement at the storage tier.
-2. **Elderly-First Accessibility**: The patient user interface departs from dense SaaS paradigms in favor of tactile ergonomics: 20px+ base typography, 60px tactile touch targets, 4-digit PIN authentication, and high-contrast color ratios exceeding 7:1 following WCAG 2.1 accessibility guidelines.
-3. **Immutable Clinical Auditing**: Patient dose logs, assistance calls, and administrative access records utilize append-only database triggers (`PREVENT_UPDATE` and `PREVENT_DELETE`) to provide an tamper-proof clinical trail.
-4. **Resilient Notification Delivery**: Notification dispatch follows an at-least-once model using database worker leases, bounded exponential backoff, and cryptographic idempotency keys (`X-Entity-Ref-ID`) to eliminate duplicate reminders.
+1. **Defense-in-Depth Authorization**: Route-level access is checked at the Edge via Next.js middleware, sensitive mutations are re-authorized inside Server Actions, and database access is constrained by PostgreSQL Row-Level Security (RLS) policies.
+2. **Dual-Track Authentication Separation**:
+   - **Staff & Family Users**: Authenticate through standard Supabase Auth (email/password), receiving Supabase JWT session cookies that directly satisfy PostgreSQL RLS.
+   - **Elderly Patient Kiosk**: Authenticates via an on-screen numeric PIN verified against Bcrypt hashes in `patient_profiles.passcode_hash`. On success, the server issues an HMAC-SHA256 signed session cookie (`medicare_kiosk_session`).
+   - *Architectural Boundary*: The Kiosk HMAC session cookie does **not** directly satisfy Supabase RLS. Instead, Next.js Server Actions verify the HMAC cookie on the server and invoke secure, server-only database RPC functions using the Supabase Service Role client.
+3. **Immutable Clinical Auditing**: State changes (doses, appointments, assistance requests, access changes) are captured in `public.activity_logs`. Database triggers (`enforce_append_only_audit`) reject any `UPDATE` or `DELETE` operations on this table.
+4. **At-Least-Once Notification Delivery**: Reminders are processed via an asynchronous queue with worker lease locking (`claim_notifications_batch`), stale lease recovery, bounded exponential backoff, and idempotency headers.
 
 ---
 
@@ -21,148 +28,196 @@ The application is built on **Next.js 15 (App Router)** with **TypeScript**, pow
 
 ```mermaid
 flowchart TD
-    subgraph ClientLayer["Client & Kiosk Layer"]
-        ElderlyKiosk["Patient Kiosk (Tablet/Touch)
-        - 4-Digit Numeric PIN
-        - Tactile 60px Actions"]
-        WebClinician["Clinical Dashboard
-        - Caretaker Operations
-        - Admin Console
-        - Family Circle"]
+    subgraph ClientLayer["Client & Kiosk Touchpoints"]
+        Kiosk["Patient Tablet Kiosk
+        (PIN Keypad • Large Touch Targets)"]
+        WebClinician["Web Dashboards
+        (Caretaker • Family • Administrator)"]
     end
 
-    subgraph EdgeLayer["Edge & Next.js 15 App Router (Vercel)"]
+    subgraph EdgeLayer["Edge & Next.js 15 Runtime (Vercel)"]
         Middleware["Edge Middleware
-        - Session Token Validation
-        - Role Route Gating
-        - Kiosk HMAC Validation"]
-        
-        subgraph ServerRuntime["Server Components & Actions"]
-            ServerActions["Server Actions ('use server')
-            - Dose Logging & Skip Rationale
-            - Appointment Scheduling
-            - SOS Assistance Handling"]
-            
-            CronRoute["Route Handler
+        - Supabase Auth Session Refresh
+        - Route Gating by Role
+        - Kiosk HMAC Signature Check"]
+
+        subgraph ServerRuntime["Server Components & Server Actions"]
+            Actions["Server Actions ('use server')
+            - recordDoseAction()
+            - verifyPinAction()
+            - createAssistanceRequest()"]
+
+            CronEndpoint["Route Handler
             /api/cron/process-reminders
             - Bearer CRON_SECRET Auth"]
         end
     end
 
-    subgraph DataLayer["Supabase Backend (PostgreSQL 15)"]
-        SupabaseAuth["Supabase Auth
-        - JWT Verification
-        - Password Hashing (Bcrypt)"]
+    subgraph DatabaseLayer["Supabase Backend (PostgreSQL 15)"]
+        SupabaseAuth["Supabase Auth (auth.users)"]
         
         RLS["PostgreSQL Row-Level Security
-        - Granular Table Isolation
-        - Caretaker/Patient Access Helper"]
-        
-        Tables["Core Relational Tables
-        - patients, prescriptions
-        - dose_logs, appointments
-        - assistance_requests, audit_logs"]
-        
-        Triggers["Database Triggers & RPCs
-        - verify_kiosk_pin()
-        - record_dose_action()
-        - Append-only Audit Enforcer"]
+        - has_patient_access()
+        - is_admin()"]
+
+        Tables["Core Relational Tables (11)
+        - users, patient_profiles, patient_access
+        - medications, medication_logs
+        - appointments, healthcare_routines
+        - routine_logs, assistance_requests
+        - notifications, activity_logs"]
+
+        RPCs["Secure Database RPCs
+        - patient_record_dose_kiosk()
+        - record_failed_pin_attempt()
+        - claim_notifications_batch()
+        - complete_notification_delivery()
+        - fail_notification_delivery()"]
     end
 
-    subgraph NotificationLayer["Messaging & Alert Pipeline"]
-        NotificationQueue["notification_queue (PostgreSQL)
-        - Atomic Worker Lease
-        - Bounded Exponential Backoff"]
-        
+    subgraph NotificationLayer["External Messaging Pipeline"]
         ResendAPI["Resend Email API
-        - Idempotency: X-Entity-Ref-ID
+        - Header: X-Entity-Ref-ID
         - Caregiver Alerts & Reminders"]
     end
 
-    ElderlyKiosk -->|HTTPS / HMAC Session| Middleware
-    WebClinician -->|HTTPS / Supabase JWT| Middleware
-    Middleware --> ServerActions
-    ServerActions -->|Service Role / User JWT| SupabaseAuth
-    ServerActions --> RLS
+    Kiosk -->|HTTPS / HMAC Cookie| Middleware
+    WebClinician -->|HTTPS / Supabase JWT Cookie| Middleware
+    Middleware --> Actions
+    Actions -->|User Context / JWT| RLS
+    Actions -->|Service Role for Kiosk RPCs| RPCs
     RLS --> Tables
-    Tables --> Triggers
-    
-    CronRoute -->|Atomic Claim RPC| NotificationQueue
-    NotificationQueue -->|Dispatched Alerts| ResendAPI
+    RPCs --> Tables
+
+    CronEndpoint -->|Service Role / Worker ID| RPCs
+    CronEndpoint -->|HTTP POST| ResendAPI
 ```
 
 ---
 
 ## 4. Next.js 15 App Router Structure
 
-MediCare Connect leverages the Next.js 15 App Router with distinct architectural boundaries:
+The codebase adheres to the Next.js 15 App Router structure:
 
 ```
-src/app/
-├── (auth)/
-│   └── login/                 # Unified Supabase Auth + Kiosk PIN entry
-├── (dashboard)/
-│   ├── admin/                 # Administrator system governance portal
-│   ├── caretaker/             # Caretaker clinical operations console
-│   ├── family/                # Family circle adherence & updates portal
-│   └── patient/               # High-accessibility elderly patient kiosk
-├── api/
-│   └── cron/
-│       └── process-reminders/ # Secured scheduled notification worker endpoint
-├── layout.tsx                 # Root layout with global metadata, canonical, & OG tags
-├── page.tsx                   # Public marketing & clinical overview landing page
-├── robots.ts                  # Search crawler directives (disallows private routes)
-├── sitemap.ts                 # Dynamic public sitemap generator
-└── opengraph-image.tsx        # Dynamic @vercel/og social preview card generator
+src/
+├── app/
+│   ├── (auth)/
+│   │   └── login/page.tsx               # Unified Sign In, Kiosk PIN, and Invite tabs
+│   ├── (dashboard)/
+│   │   ├── admin/page.tsx               # System governance & audit trail
+│   │   ├── caretaker/page.tsx           # Multi-patient management & prescriptions
+│   │   ├── family/page.tsx              # Patient adherence overview & care contacts
+│   │   └── patient/page.tsx             # Accessible elderly patient kiosk
+│   ├── api/cron/process-reminders/
+│   │   └── route.ts                     # Secured cron worker endpoint
+│   ├── layout.tsx                       # Root layout with metadata and landmarks
+│   ├── page.tsx                         # Landing page with workflow presentation
+│   ├── robots.ts                        # Crawler directives (disallows private paths)
+│   ├── sitemap.ts                       # Public sitemap generator
+│   └── opengraph-image.tsx              # Dynamic Open Graph preview generator
+├── components/
+│   ├── admin/admin-dashboard-client.tsx
+│   ├── auth/login-client.tsx
+│   ├── caretaker/caretaker-dashboard-client.tsx
+│   ├── family/family-dashboard-client.tsx
+│   ├── layout/                          # AppHeader, AppSidebar, PageContainer
+│   ├── patient/patient-dashboard-client.tsx
+│   └── ui/                              # Button, Card, Badge, Input
+├── lib/
+│   ├── actions/                         # Server Actions (Auth, Medication, Patient, etc.)
+│   ├── auth/                            # Kiosk HMAC signing, permissions, auth services
+│   ├── email/                           # Resend integration, scheduler, and HTML templates
+│   └── supabase/                        # Browser, server, and service-role clients
+└── middleware.ts                        # Edge route gating and cookie refresh
 ```
-
-### Component Responsibility Separation
-- **Server Components (Default)**: Perform initial data prefetching, static HTML streaming, and strict metadata rendering.
-- **Client Components (`'use client'`)**: Confined to interactive UI terminals (e.g., numeric PIN keypad, quick dose confirmation toggles, modal dialogs).
-- **Server Actions (`'use server'`)**: Self-contained RPC routines handling authentication, dose tracking, and patient assistance requests without exposing raw database queries to the client.
 
 ---
 
-## 5. Security & Authentication Architecture
+## 5. Authentication & Authorization Lifecycle
 
-### 1. Dual-Track Authentication
-- **Staff & Family Users**: Authenticate via Supabase Auth using email and passwords. Successful authentication produces standard secure HTTP-only session cookies.
-- **Elderly Patient Kiosks**: Authenticate using an on-screen 4-digit PIN against Bcrypt password hashes stored in `patients.kiosk_pin_hash`. Upon validation, an HMAC-SHA256 signed cookie (`medicare_kiosk_session`) is issued with an explicit expiration timestamp.
+### 1. Supabase Auth (Staff & Family)
+- Handled by `src/lib/auth/auth.service.ts` via `supabase.auth.signInWithPassword`.
+- Authenticated user records link to `public.users(id)` with roles: `ADMIN`, `CARETAKER`, `FAMILY`, or `PATIENT`.
+- Session cookies are refreshed on each request inside `middleware.ts`.
+- Direct Supabase queries in Server Components and Server Actions execute within the user's RLS security context.
 
-### 2. Kiosk Session Cryptographic Verification
+### 2. Patient Kiosk Authentication (Numeric PIN)
+- Patient PINs are stored as salted Bcrypt hashes in `public.patient_profiles.passcode_hash`.
+- Validated via `verifyPatientPinAction` in `src/lib/auth/kiosk-session.ts`:
+  1. Compares submitted PIN against the stored hash in constant time (`bcrypt.compareSync`).
+  2. If incorrect, increments `failed_passcode_attempts` and invokes `record_failed_pin_attempt()`. After 5 consecutive failures, sets `passcode_locked_until = NOW() + INTERVAL '15 minutes'`.
+  3. If valid, resets failed attempts and signs a token: `patientId:expiresAt:hmac_signature`.
+  4. Sets the HTTP-only cookie `medicare_kiosk_session` with a 1-hour expiration.
+
 ```mermaid
 sequenceDiagram
     autonumber
     actor Patient as Elderly Patient
-    participant Client as Kiosk UI (Client)
+    participant KioskUI as Kiosk Interface (Client)
     participant Action as verifyPinAction (Server)
-    participant DB as PostgreSQL (Supabase)
-    participant Edge as Edge Middleware
+    participant AdminClient as Supabase Admin (Service Role)
+    participant DB as PostgreSQL Database
 
-    Patient->>Client: Enters 4-digit numeric PIN
-    Client->>Action: verifyPinAction(patientId, pin)
-    Action->>DB: Call verify_kiosk_pin RPC
-    Note over DB: Constant-time Bcrypt verify<br/>Enforce 5-attempt rate limit<br/>Check 15-min lockout window
-    DB-->>Action: Success / Failure result
-    Action->>Action: Sign HMAC-SHA256 token (patientId:expiresAt)
-    Action-->>Client: Set HTTP-only 'medicare_kiosk_session' cookie
-    Client->>Edge: Request /patient dashboard
-    Edge->>Edge: Verify HMAC-SHA256 signature using Web Crypto API
-    Edge-->>Client: Allow /patient access
+    Patient->>KioskUI: Enters 4-digit PIN
+    KioskUI->>Action: verifyPinAction(patientId, pin)
+    Action->>DB: Query passcode_hash & passcode_locked_until
+    Note over Action: Verify lockout timestamp & compare Bcrypt hash
+    alt Incorrect PIN
+        Action->>AdminClient: rpc('record_failed_pin_attempt')
+        AdminClient->>DB: Increment failed attempts (lockout if >= 5)
+        Action-->>KioskUI: Error with attempts remaining / lockout notice
+    else Correct PIN
+        Action->>Action: Generate HMAC-SHA256 signature
+        Action-->>KioskUI: Set 'medicare_kiosk_session' HTTP-only cookie
+        KioskUI->>Action: Request /patient dashboard
+        Action-->>KioskUI: Render accessible kiosk interface
+    end
 ```
 
 ---
 
-## 6. Notification & Reminder Pipeline
+## 6. Asynchronous Notification & Reminder Pipeline
 
-The reminder engine operates an at-least-once delivery cycle driven by scheduled worker executions:
+The reminder engine operates an at-least-once scheduled delivery cycle:
 
-1. **Trigger Phase**: The external scheduler triggers `GET /api/cron/process-reminders` accompanied by the `Authorization: Bearer <CRON_SECRET>` header.
-2. **Claiming Phase**: Worker calls `claim_notifications(batch_size, lease_duration)` which uses `SELECT ... FOR UPDATE SKIP LOCKED` to atomically claim pending notifications without race conditions.
-3. **Dispatch Phase**: Sends emails via Resend with the `X-Entity-Ref-ID` header set to the notification ID.
-4. **Retry Timing Phase**: Unsuccessful attempts enter an exponential backoff sequence:
-   - Attempt 1: 10 minutes (`5m * 2^1`)
-   - Attempt 2: 20 minutes (`5m * 2^2`)
-   - Attempt 3: 40 minutes (`5m * 2^3`)
-   - Attempt 4: 80 minutes (`5m * 2^4`)
-   - Max attempts reached (3 for routine, 5 for SOS) transitions status to `FAILED`.
+```mermaid
+flowchart TD
+    Scheduler["External Scheduler (e.g., cron-job.org / GitHub Actions)
+    Every 5 minutes"] -->|GET /api/cron/process-reminders
+    Bearer CRON_SECRET| WorkerRoute["Route Handler
+    src/app/api/cron/process-reminders/route.ts"]
+
+    WorkerRoute --> ScheduleDue["scheduleDueReminders()
+    - Scans medication_logs for upcoming/missed doses
+    - Scans appointments for 24h reminders
+    - Inserts PENDING into public.notifications"]
+
+    ScheduleDue --> ClaimBatch["claim_notifications_batch(worker_id, 25)
+    - Reclaims expired leases (status='CLAIMED' AND lease_expires_at < NOW())
+    - SELECT ... FOR UPDATE SKIP LOCKED
+    - Sets status='CLAIMED', lease_expires_at=NOW() + 2 mins"]
+
+    ClaimBatch --> DispatchLoop["Sequential Notification Dispatch"]
+
+    DispatchLoop --> SendEmail["sendEmailViaResend()
+    - HTTP POST to Resend API
+    - Header: X-Entity-Ref-ID = event_identifier"]
+
+    SendEmail -->|Success (messageId)| CompleteRPC["complete_notification_delivery()
+    - status = 'SENT'
+    - external_id = messageId
+    - sent_at = NOW()"]
+
+    SendEmail -->|Provider Error / Timeout| FailRPC["fail_notification_delivery()
+    - delivery_attempts += 1
+    - next_retry_at = NOW() + (300s * 2^attempts)
+    - If attempts >= max_attempts: status = 'FAILED'
+    - Else: status = 'PENDING'"]
+```
+
+### Critical Notification Delivery Properties
+- **Deduplication Key**: The database field `event_identifier` has a `UNIQUE` constraint (e.g., `event_upcoming_<dose_id>_<date>`), preventing duplicate rows from being inserted for the same event on the same day.
+- **Provider Reference Header**: When dispatching to Resend, the `event_identifier` is transmitted in the `X-Entity-Ref-ID` header.
+- **Worker Lease Duration**: Worker claims hold a 2-minute lease (`lease_expires_at`). If a worker terminates unexpectedly, subsequent batch claims automatically recover and reprocess stale records.
+- **At-Least-Once Delivery**: Because a network failure could occur between Resend accepting the message and the database recording the completion, notifications may be re-delivered on failure recovery. Exactly-once delivery is not claimed.

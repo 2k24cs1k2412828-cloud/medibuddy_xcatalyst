@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Heart, ShieldCheck } from "lucide-react";
+import Image from "next/image";
+import { ShieldCheck } from "lucide-react";
 import { LoginClient } from "@/components/auth/login-client";
 
 export const metadata: Metadata = {
@@ -15,16 +16,18 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex flex-col justify-center items-center p-4 bg-slate-50 text-slate-900">
       {/* Brand Header */}
-      <div className="mb-6 text-center space-y-2">
-        <Link href="/" className="inline-flex items-center gap-2.5 group">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-700 text-white shadow-md group-hover:bg-teal-800 transition-colors">
-            <Heart className="h-7 w-7 fill-white/20" />
-          </div>
-          <span className="text-2xl font-bold tracking-tight text-slate-950">
-            MediCare Connect
-          </span>
+      <div className="mb-6 text-center space-y-3">
+        <Link href="/" className="inline-flex items-center justify-center group">
+          <Image
+            src="/logo.png"
+            alt="MediCare Connect Logo"
+            width={280}
+            height={98}
+            className="h-16 w-auto object-contain group-hover:scale-[1.02] transition-transform"
+            priority
+          />
         </Link>
-        <p className="text-sm text-slate-500 max-w-sm">
+        <p className="text-sm text-slate-500 max-w-sm mx-auto">
           Secure healthcare portal for elderly patients, caregivers, and family members.
         </p>
       </div>

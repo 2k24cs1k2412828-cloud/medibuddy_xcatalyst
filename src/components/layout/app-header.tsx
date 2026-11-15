@@ -1,7 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { UserRole } from "@/types";
-import { Heart, User, LogOut, Bell } from "lucide-react";
+import { User, LogOut, Bell } from "lucide-react";
 import { signOutUser } from "@/lib/auth/auth.service";
 
 interface AppHeaderProps {
@@ -23,9 +24,14 @@ export function AppHeader({ role, userName = "Demo User", isPatient = false }: A
       <div className={`mx-auto flex h-16 items-center justify-between px-4 md:px-8 ${isPatient ? "max-w-5xl h-20" : "max-w-7xl"}`}>
         {/* Brand / Logo */}
         <Link href="/" className="flex items-center space-x-2.5 group">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-700 text-white shadow-sm group-hover:bg-teal-800 transition-colors">
-            <Heart className="h-6 w-6 fill-white/20" />
-          </div>
+          <Image
+            src="/logo-icon.png"
+            alt="MediCare Connect Logo"
+            width={40}
+            height={40}
+            className="h-10 w-10 object-contain group-hover:scale-105 transition-transform"
+            priority
+          />
           <div>
             <span className={`font-bold tracking-tight text-slate-900 ${isPatient ? "text-2xl" : "text-xl"}`}>
               MediCare Connect
