@@ -325,7 +325,7 @@ export function LoginClient() {
               }`}
             >
               <UserPlus className="h-3.5 w-3.5" />
-              <span>Invite</span>
+              <span>Sign Up</span>
             </button>
           </div>
 
@@ -333,7 +333,7 @@ export function LoginClient() {
             <CardTitle className="text-xl sm:text-2xl font-bold text-slate-950">
               {authMode === 'STANDARD' && 'Staff & Family Login'}
               {authMode === 'PIN' && 'Patient PIN Kiosk'}
-              {authMode === 'INVITE' && 'Accept Invitation'}
+              {authMode === 'INVITE' && 'Create Account / Sign Up'}
             </CardTitle>
             <Badge
               variant={authMode === 'PIN' ? 'default' : 'secondary'}
@@ -341,13 +341,13 @@ export function LoginClient() {
             >
               {authMode === 'STANDARD' && 'Role Access'}
               {authMode === 'PIN' && 'PIN: 1234'}
-              {authMode === 'INVITE' && 'Registration'}
+              {authMode === 'INVITE' && 'New Account'}
             </Badge>
           </div>
           <CardDescription className="text-slate-500 text-xs sm:text-sm">
             {authMode === 'STANDARD' && 'Enter your authorized credentials or use pre-fill chips below.'}
             {authMode === 'PIN' && 'Enter 4-digit PIN 1234 for demo patient Robert Chen.'}
-            {authMode === 'INVITE' && 'Create your authorized caregiver or family circle account.'}
+            {authMode === 'INVITE' && 'Create your new Caretaker or Family account to access the platform.'}
           </CardDescription>
         </CardHeader>
 
@@ -621,10 +621,10 @@ export function LoginClient() {
 
               <Button
                 type="submit"
-                className="w-full h-11 text-sm font-bold bg-teal-700 hover:bg-teal-800 text-white mt-2"
+                className="w-full h-11 text-sm font-bold bg-teal-700 hover:bg-teal-800 text-white mt-2 shadow-sm"
                 disabled={isPending}
               >
-                {isPending ? 'Registering...' : 'Create Account & Accept Invitation'}
+                {isPending ? 'Creating Account & Initializing...' : 'Sign Up & Launch Dashboard'}
               </Button>
             </form>
           )}
