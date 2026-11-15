@@ -136,35 +136,40 @@ export function AppSidebar({ items, isPatient = false }: AppSidebarProps) {
         })}
       </div>
 
-      {/* Role Switcher Demo Box */}
-      <div className="mt-auto p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-          Switch Dashboard Preview
-        </p>
-        <div className="grid grid-cols-2 gap-1.5 text-xs font-medium">
+      {/* Quick Role Navigation for Review & Demonstration */}
+      <div className="mt-auto p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Role Portals
+          </span>
+          <span className="text-[10px] text-teal-800 font-semibold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200/60">
+            Demo Nav
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold">
           <Link
             href="/admin"
-            className="p-1.5 text-center rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-200"
+            className="p-2 text-center rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors shadow-2xs"
           >
             Admin
           </Link>
           <Link
             href="/caretaker"
-            className="p-1.5 text-center rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-200"
+            className="p-2 text-center rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors shadow-2xs"
           >
             Caretaker
           </Link>
           <Link
             href="/family"
-            className="p-1.5 text-center rounded bg-white hover:bg-slate-100 text-slate-700 border border-slate-200"
+            className="p-2 text-center rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors shadow-2xs"
           >
             Family
           </Link>
           <Link
             href="/patient"
-            className="p-1.5 text-center rounded bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold border border-teal-200"
+            className="p-2 text-center rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 transition-colors shadow-2xs font-bold"
           >
-            Patient
+            Patient Kiosk
           </Link>
         </div>
       </div>
