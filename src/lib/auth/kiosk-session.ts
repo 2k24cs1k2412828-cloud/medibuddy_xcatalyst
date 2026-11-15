@@ -240,7 +240,7 @@ export async function verifyPatientPinAction(
         .update({
           failed_passcode_attempts: 0,
           passcode_locked_until: null,
-        } as any)
+        })
         .eq('id', patientId);
     } catch {
       // Ignored

@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node scripts/run_all_tests.mjs"
   },
   "dependencies": {
     "@next/swc-wasm-nodejs": "^15.5.29",

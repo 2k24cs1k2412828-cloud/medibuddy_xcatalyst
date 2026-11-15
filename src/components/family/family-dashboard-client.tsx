@@ -44,12 +44,17 @@ export function FamilyDashboardClient() {
 
       {/* Call Banner */}
       {callNotice && (
-        <div className="p-4 rounded-xl bg-blue-700 text-white font-bold text-base flex items-center justify-between shadow-md animate-in fade-in">
+        <div role="status" aria-live="polite" className="p-4 rounded-xl bg-blue-700 text-white font-bold text-base flex items-center justify-between shadow-md animate-in fade-in">
           <div className="flex items-center gap-2">
             <PhoneCall className="h-5 w-5 text-amber-300 animate-pulse" />
             <span>{callNotice}</span>
           </div>
-          <button onClick={() => setCallNotice(null)} className="p-1 hover:bg-blue-800 rounded">
+          <button
+            type="button"
+            aria-label="Dismiss call status"
+            onClick={() => setCallNotice(null)}
+            className="h-11 w-11 flex items-center justify-center hover:bg-blue-800 rounded-lg text-white transition-colors"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -57,12 +62,17 @@ export function FamilyDashboardClient() {
 
       {/* Sent Message Notice */}
       {sentNotice && (
-        <div className="p-4 rounded-xl bg-emerald-700 text-white font-bold text-base flex items-center justify-between shadow-md animate-in fade-in">
+        <div role="status" aria-live="polite" className="p-4 rounded-xl bg-emerald-700 text-white font-bold text-base flex items-center justify-between shadow-md animate-in fade-in">
           <div className="flex items-center gap-2">
             <Heart className="h-5 w-5 text-pink-300 fill-pink-300" />
             <span>{sentNotice}</span>
           </div>
-          <button onClick={() => setSentNotice(null)} className="p-1 hover:bg-emerald-800 rounded">
+          <button
+            type="button"
+            aria-label="Dismiss sent message"
+            onClick={() => setSentNotice(null)}
+            className="h-11 w-11 flex items-center justify-center hover:bg-emerald-800 rounded-lg text-white transition-colors"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -240,16 +250,18 @@ export function FamilyDashboardClient() {
 
       {/* SEND ENCOURAGEMENT MODAL */}
       {encourageModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-labelledby="encourage-modal-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <h3 id="encourage-modal-title" className="text-xl font-bold text-slate-900 flex items-center gap-2">
                 <Heart className="h-5 w-5 text-rose-500 fill-rose-500" />
                 <span>Encouragement for Dad</span>
               </h3>
               <button
+                type="button"
+                aria-label="Close encouragement dialog"
                 onClick={() => setEncourageModalOpen(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600"
+                className="h-11 w-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>

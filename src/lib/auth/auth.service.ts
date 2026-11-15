@@ -87,7 +87,7 @@ export async function signInWithEmail(
         email: authData.user.email!,
         full_name: rawMeta.full_name || email.split('@')[0],
         role: fallbackRole,
-      } as any);
+      });
 
       const redirectUrl = await getRoleDashboardUrl(fallbackRole);
       return { success: true, role: fallbackRole, redirectUrl };
@@ -101,8 +101,8 @@ export async function signInWithEmail(
       role,
       redirectUrl,
     };
-  } catch (err: any) {
-    const msg = err?.message || String(err);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('fetch failed')) {
       return {
         success: false,
@@ -225,12 +225,12 @@ export async function acceptUserInvitation(formData: {
       email: formData.email,
       full_name: formData.fullName,
       role: formData.role,
-    } as any);
+    });
 
     const redirectUrl = await getRoleDashboardUrl(formData.role);
     return { success: true, role: formData.role, redirectUrl };
-  } catch (err: any) {
-    const msg = err?.message || String(err);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('fetch failed')) {
       return {
         success: false,

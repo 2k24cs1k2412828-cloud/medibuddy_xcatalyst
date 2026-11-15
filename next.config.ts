@@ -2,14 +2,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    cpus: 1,
-    workerThreads: false,
+    optimizePackageImports: ["lucide-react"],
   },
   async headers() {
     return [
       {
         source: "/:path*",
         headers: [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
           {
             key: "X-Frame-Options",
             value: "DENY",

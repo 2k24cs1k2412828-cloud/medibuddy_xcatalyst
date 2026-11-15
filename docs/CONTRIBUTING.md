@@ -66,23 +66,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 Before opening a pull request, run all verification suites:
 
 ```bash
-# 1. TypeScript Static Typecheck
+# 1. Run all 5 automated test suites (129 assertions)
+npm test
+
+# 2. TypeScript Static Typecheck
 npx tsc --noEmit
 
-# 2. ESLint Code Quality Verification
+# 3. ESLint Code Quality Verification
 npm run lint
 
-# 3. Next.js Production Build
+# 4. Next.js Production Build
 npm run build
-
-# 4. Phase 4: Authentication & Security Test Suite (38 assertions)
-node scripts/test_phase4_security.mjs
-
-# 5. Phase 5: Notification & Worker Test Suite (28 assertions)
-node scripts/test_phase5_notifications.mjs
-
-# 6. Phase 6: End-to-End Clinical Integration Suite (39 assertions)
-node scripts/test_phase6_e2e_integration.mjs
 ```
 
 ---

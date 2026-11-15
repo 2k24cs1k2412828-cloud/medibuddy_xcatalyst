@@ -56,11 +56,11 @@ export function AppHeader({ role, userName = "Demo User", isPatient = false }: A
           {!isPatient && (
             <button
               type="button"
-              className="relative p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
+              className="relative min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
               aria-label="View notifications"
             >
               <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-teal-600 ring-2 ring-white" />
+              <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-teal-600 ring-2 ring-white" />
             </button>
           )}
 
@@ -76,8 +76,9 @@ export function AppHeader({ role, userName = "Demo User", isPatient = false }: A
           <form action={signOutUser}>
             <button
               type="submit"
-              className="flex items-center space-x-1 p-2 text-slate-500 hover:text-red-700 rounded-lg hover:bg-red-50 transition-colors"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-slate-500 hover:text-red-700 rounded-lg hover:bg-red-50 transition-colors"
               title="Sign out"
+              aria-label="Sign out of MediCare Connect"
             >
               <LogOut className="h-5 w-5" />
               <span className="sr-only">Sign out</span>

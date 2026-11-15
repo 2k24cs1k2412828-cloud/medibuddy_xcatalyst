@@ -36,13 +36,16 @@ export async function recordDoseAction(
     const supabase = await createServerSupabaseClient();
 
     // 3. Fetch dose record to determine patient assignment
-    const { data: doseLog, error: fetchError } = await supabase
+    const { data: doseLog } = await supabase
       .from('medication_logs')
       .select('id, patient_id, status, medication_id')
       .eq('id', doseLogId)
       .single();
 
-    const targetPatientId = doseLog?.patient_id || actor.patientId || '11111111-1111-1111-1111-111111111111';
+    const targetPatientId = doseLog?.patient_id || actor.patientId;
+    if (!targetPatientId) {
+      return { success: false, error: 'Dose log record not found or patient context missing.' };
+    }
 
     // 4. Enforce strict authorization and cross-patient isolation
     const permission = status === 'SKIPPED' ? 'can_report_skips' : 'can_mark_doses';
@@ -93,10 +96,10 @@ export async function recordDoseAction(
 
     const { error: updateError } = await supabase
       .from('medication_logs')
-      .update(updatePayload as any)
+      .update(updatePayload)
       .eq('id', doseLogId);
 
-    if (updateError && fetchError) {
+    if (updateError) {
       return { success: false, error: updateError.message };
     }
 

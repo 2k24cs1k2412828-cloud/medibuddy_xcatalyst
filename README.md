@@ -337,29 +337,33 @@ MediCare Connect is continuously deployed to **Vercel** with automated GitHub in
 
 ## 🧪 Testing & Validation
 
-The codebase includes comprehensive automated test suites verifying all security boundaries, role permissions, and notification flows:
+The codebase includes comprehensive automated test suites verifying all security boundaries, role permissions, notification worker concurrency, and WCAG 2.1 accessibility:
 
 ```bash
-# 1. Run strict TypeScript validation
+# 1. Run all 5 automated test suites (129 assertions)
+npm test
+
+# 2. Run strict TypeScript validation
 npx tsc --noEmit
 
-# 2. Run ESLint code quality checks
+# 3. Run ESLint code quality checks
 npm run lint
 
-# 3. Execute Next.js production build
+# 4. Execute Next.js production build
 npm run build
-
-# 4. Execute Phase 4 Security & Auth Suite (38 assertions)
-node scripts/test_phase4_security.mjs
-
-# 5. Execute Phase 5 Resend & Worker Notification Suite (28 assertions)
-node scripts/test_phase5_notifications.mjs
-
-# 6. Execute Phase 6 End-to-End Integration Suite (39 assertions)
-node scripts/test_phase6_e2e_integration.mjs
 ```
 
-**Overall Verification Status**: **105 of 105 automated assertions passing (100%)**.
+Individual test suites can also be executed independently:
+
+```bash
+node scripts/test_phase4_security.mjs              # Security, RBAC & Kiosk Lockout (38 assertions)
+node scripts/test_phase5_notifications.mjs         # Resend Email & Worker Leases (28 assertions)
+node scripts/test_phase6_e2e_integration.mjs       # E2E Clinical Workflow & Integrity (39 assertions)
+node scripts/test_phase7_advanced_edge_cases.mjs   # Advanced Edge Cases & Concurrency (10 assertions)
+node scripts/test_phase8_accessibility.mjs         # Automated WCAG 2.1 Accessibility Audit (14 assertions)
+```
+
+**Overall Verification Status**: **129 of 129 automated assertions passing (100%)**.
 
 ---
 

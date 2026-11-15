@@ -35,7 +35,7 @@ export async function toggleRoutineLog(
         log_date: today,
         completed,
         completed_at: completed ? new Date().toISOString() : null,
-      } as any,
+      },
       { onConflict: 'routine_id,patient_id,log_date' }
     );
 

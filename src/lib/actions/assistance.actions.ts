@@ -97,7 +97,10 @@ export async function resolveAssistanceRequest(
       .eq('id', requestId)
       .single();
 
-    const targetPatientId = req?.patient_id || '11111111-1111-1111-1111-111111111111';
+    if (!req) {
+      return { success: false, error: 'Assistance request not found.' };
+    }
+    const targetPatientId = req.patient_id;
 
     // 2. Enforce permission: only Caretakers and Admins can resolve assistance requests
     const authCheck = await assertPatientPermission(actor, targetPatientId, 'can_resolve_assistance');

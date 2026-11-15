@@ -113,10 +113,12 @@ export async function middleware(request: NextRequest) {
       if (profile?.role) {
         userRole = profile.role as 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT';
       } else {
-        userRole = (user.user_metadata?.role as any) || 'CARETAKER';
+        const metaRole = user.user_metadata?.role as 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT' | undefined;
+        userRole = metaRole || 'CARETAKER';
       }
     } catch {
-      userRole = (user.user_metadata?.role as any) || 'CARETAKER';
+      const metaRole = user.user_metadata?.role as 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT' | undefined;
+      userRole = metaRole || 'CARETAKER';
     }
   }
 

@@ -143,34 +143,41 @@ async function handleWorkerExecution(request: NextRequest) {
     const notifications = claimedBatch || [];
     claimedCount = notifications.length;
 
-    // 4. Process each claimed notification sequentially without holding open DB transactions
-    for (const notification of notifications) {
-      const emailContent = buildEmailContent(notification);
+    // 4. Process claimed notifications with bounded concurrency (5 parallel dispatches)
+    // Minimizes worker execution latency while preventing network socket exhaustion
+    const CONCURRENCY_LIMIT = 5;
+    for (let i = 0; i < notifications.length; i += CONCURRENCY_LIMIT) {
+      const chunk = notifications.slice(i, i + CONCURRENCY_LIMIT);
+      await Promise.allSettled(
+        chunk.map(async (notification: any) => {
+          const emailContent = buildEmailContent(notification);
 
-      // Dispatch external HTTP request to Resend
-      const sendResult = await sendEmailViaResend(
-        notification.recipient_email,
-        emailContent,
-        notification.event_identifier
+          // Dispatch external HTTP request to Resend
+          const sendResult = await sendEmailViaResend(
+            notification.recipient_email,
+            emailContent,
+            notification.event_identifier
+          );
+
+          if (sendResult.success && sendResult.messageId) {
+            // Complete delivery atomically only if worker still owns the claim
+            await admin.rpc('complete_notification_delivery', {
+              p_notification_id: notification.id,
+              p_worker_id: workerId,
+              p_external_id: sendResult.messageId,
+            });
+            sentCount++;
+          } else {
+            // Record failure and apply bounded exponential backoff
+            await admin.rpc('fail_notification_delivery', {
+              p_notification_id: notification.id,
+              p_worker_id: workerId,
+              p_error_log: sendResult.error || 'Failed to dispatch via Resend provider',
+            });
+            failedCount++;
+          }
+        })
       );
-
-      if (sendResult.success && sendResult.messageId) {
-        // Complete delivery atomically only if worker still owns the claim
-        await admin.rpc('complete_notification_delivery', {
-          p_notification_id: notification.id,
-          p_worker_id: workerId,
-          p_external_id: sendResult.messageId,
-        });
-        sentCount++;
-      } else {
-        // Record failure and apply bounded exponential backoff
-        await admin.rpc('fail_notification_delivery', {
-          p_notification_id: notification.id,
-          p_worker_id: workerId,
-          p_error_log: sendResult.error || 'Failed to dispatch via Resend provider',
-        });
-        failedCount++;
-      }
     }
 
     return NextResponse.json({

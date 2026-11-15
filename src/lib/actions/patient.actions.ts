@@ -172,7 +172,7 @@ export async function registerPatient(formData: {
         medical_conditions: formData.medicalConditions,
         allergies: formData.allergies,
         status: 'ACTIVE' as const,
-      } as any)
+      })
       .select('id')
       .single();
 

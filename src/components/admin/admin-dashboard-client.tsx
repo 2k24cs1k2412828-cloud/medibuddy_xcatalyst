@@ -212,12 +212,17 @@ export function AdminDashboardClient() {
 
       {/* Action Notice */}
       {notice && (
-        <div className="p-4 rounded-xl bg-teal-800 text-white font-bold text-base flex items-center justify-between shadow-md">
+        <div role="status" aria-live="polite" className="p-4 rounded-xl bg-teal-800 text-white font-bold text-base flex items-center justify-between shadow-md">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-emerald-400" />
             <span>{notice}</span>
           </div>
-          <button onClick={() => setNotice(null)} className="p-1 hover:bg-teal-900 rounded">
+          <button
+            type="button"
+            aria-label="Dismiss notice"
+            onClick={() => setNotice(null)}
+            className="h-11 w-11 flex items-center justify-center hover:bg-teal-900 rounded-lg text-white transition-colors"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -383,11 +388,16 @@ export function AdminDashboardClient() {
 
       {/* REGISTER NEW PATIENT MODAL */}
       {registerModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-labelledby="register-patient-modal-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Register New Patient Profile</h3>
-              <button onClick={() => setRegisterModalOpen(false)} className="p-1 rounded text-slate-400 hover:text-slate-600">
+              <h3 id="register-patient-modal-title" className="text-xl font-bold text-slate-900">Register New Patient Profile</h3>
+              <button
+                type="button"
+                aria-label="Close register dialog"
+                onClick={() => setRegisterModalOpen(false)}
+                className="h-11 w-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -481,11 +491,16 @@ export function AdminDashboardClient() {
 
       {/* INVITE CAREGIVER / FAMILY MODAL */}
       {inviteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-labelledby="invite-modal-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Invite Care Circle Member</h3>
-              <button onClick={() => setInviteModalOpen(false)} className="p-1 rounded text-slate-400 hover:text-slate-600">
+              <h3 id="invite-modal-title" className="text-xl font-bold text-slate-900">Invite Care Circle Member</h3>
+              <button
+                type="button"
+                aria-label="Close invite dialog"
+                onClick={() => setInviteModalOpen(false)}
+                className="h-11 w-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>

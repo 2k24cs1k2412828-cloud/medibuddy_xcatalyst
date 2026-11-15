@@ -62,7 +62,7 @@ export async function queueNotification(
       delivery_attempts: 0,
       max_attempts: isUrgent ? 5 : 3,
       next_retry_at: new Date().toISOString(), // Immediate eligibility
-    } as any);
+    });
 
     if (error) {
       // 23505 = unique constraint violation (duplicate event already queued)
@@ -75,6 +75,57 @@ export async function queueNotification(
     return { queued: true };
   } catch (err) {
     return { queued: false, error: String(err) };
+  }
+}
+
+/**
+ * Inserts multiple notification events in an atomic bulk operation.
+ * Eliminates N+1 database roundtrips and handles deduplication via event_identifier.
+ */
+export async function queueNotificationsBatch(
+  items: QueueNotificationParams[]
+): Promise<{ queuedCount: number; errors?: string[] }> {
+  if (!items || items.length === 0) {
+    return { queuedCount: 0 };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const records = items
+      .filter((item) => item.recipientEmail && item.recipientEmail.includes('@'))
+      .map((item) => {
+        const isUrgent = item.urgency === 'URGENT' || item.notificationType === 'ASSISTANCE_ALERT';
+        return {
+          patient_id: item.patientId,
+          recipient_email: item.recipientEmail.trim().toLowerCase(),
+          recipient_id: item.recipientId || null,
+          notification_type: item.notificationType,
+          subject: item.subject,
+          message_snippet: item.messageSnippet || null,
+          event_identifier: item.eventIdentifier,
+          status: 'PENDING' as const,
+          delivery_attempts: 0,
+          max_attempts: isUrgent ? 5 : 3,
+          next_retry_at: new Date().toISOString(),
+        };
+      });
+
+    if (records.length === 0) {
+      return { queuedCount: 0 };
+    }
+
+    const { data, error } = await admin
+      .from('notifications')
+      .upsert(records, { onConflict: 'event_identifier', ignoreDuplicates: true })
+      .select('id');
+
+    if (error) {
+      return { queuedCount: 0, errors: [error.message] };
+    }
+
+    return { queuedCount: data ? data.length : records.length };
+  } catch (err) {
+    return { queuedCount: 0, errors: [String(err)] };
   }
 }
 
@@ -102,6 +153,8 @@ export async function scheduleDueReminders(): Promise<{
     // Default primary caretaker email for alerts
     const fallbackCaretakerEmail = 'sarah.jenkins@hospital.org';
 
+    const batchItems: QueueNotificationParams[] = [];
+
     // 1. Scan for Overdue / Missed Doses (>30 mins past scheduled time and still PENDING)
     const thirtyMinsAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
     const { data: overdueDoses } = await admin
@@ -113,10 +166,11 @@ export async function scheduleDueReminders(): Promise<{
 
     if (overdueDoses && overdueDoses.length > 0) {
       for (const dose of overdueDoses) {
-        const medName = (dose.medications as any)?.name || 'Prescribed medication';
+        const medData = dose.medications as { name?: string } | null;
+        const medName = medData?.name || 'Prescribed medication';
         const eventId = `event_missed_${dose.id}_${today}`;
 
-        const res = await queueNotification({
+        batchItems.push({
           patientId: dose.patient_id,
           recipientEmail: fallbackCaretakerEmail,
           notificationType: 'MISSED_DOSE',
@@ -125,8 +179,7 @@ export async function scheduleDueReminders(): Promise<{
           eventIdentifier: eventId,
           urgency: 'URGENT',
         });
-
-        if (res.queued) missedDoses++;
+        missedDoses++;
       }
     }
 
@@ -141,11 +194,12 @@ export async function scheduleDueReminders(): Promise<{
 
     if (dueDoses && dueDoses.length > 0) {
       for (const dose of dueDoses) {
-        const medName = (dose.medications as any)?.name || 'Prescription';
-        const dosage = (dose.medications as any)?.dosage || '';
+        const medData = dose.medications as { name?: string; dosage?: string } | null;
+        const medName = medData?.name || 'Prescription';
+        const dosage = medData?.dosage || '';
         const eventId = `event_upcoming_${dose.id}_${today}`;
 
-        const res = await queueNotification({
+        batchItems.push({
           patientId: dose.patient_id,
           recipientEmail: fallbackCaretakerEmail,
           notificationType: 'UPCOMING_DOSE',
@@ -154,8 +208,7 @@ export async function scheduleDueReminders(): Promise<{
           eventIdentifier: eventId,
           urgency: 'NORMAL',
         });
-
-        if (res.queued) upcomingDoses++;
+        upcomingDoses++;
       }
     }
 
@@ -172,7 +225,7 @@ export async function scheduleDueReminders(): Promise<{
       for (const apt of upcomingApts) {
         const eventId = `event_apt_${apt.id}_${today}`;
 
-        const res = await queueNotification({
+        batchItems.push({
           patientId: apt.patient_id,
           recipientEmail: fallbackCaretakerEmail,
           notificationType: 'APPOINTMENT_REMINDER',
@@ -181,9 +234,13 @@ export async function scheduleDueReminders(): Promise<{
           eventIdentifier: eventId,
           urgency: 'NORMAL',
         });
-
-        if (res.queued) appointments++;
+        appointments++;
       }
+    }
+
+    // Execute bulk atomic insertion in 1 single database roundtrip
+    if (batchItems.length > 0) {
+      await queueNotificationsBatch(batchItems);
     }
   } catch {
     // Ignore scheduler query errors in unseeded environments

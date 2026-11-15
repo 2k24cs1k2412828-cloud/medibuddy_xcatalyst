@@ -211,14 +211,16 @@ export function PatientDashboardClient() {
 
       {/* Floating Celebration Toast */}
       {celebrationMessage && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-emerald-600 text-white font-extrabold text-xl shadow-xl flex items-center justify-between border-2 border-emerald-400 animate-in fade-in slide-in-from-top-4">
+        <div role="status" aria-live="polite" className="p-4 sm:p-5 rounded-2xl bg-emerald-600 text-white font-extrabold text-xl shadow-xl flex items-center justify-between border-2 border-emerald-400 animate-in fade-in slide-in-from-top-4">
           <div className="flex items-center gap-3">
             <Sparkles className="h-8 w-8 text-yellow-300 animate-pulse" />
             <span>{celebrationMessage}</span>
           </div>
           <button
+            type="button"
+            aria-label="Dismiss celebration message"
             onClick={() => setCelebrationMessage(null)}
-            className="p-1 hover:bg-emerald-700 rounded-lg text-white"
+            className="h-11 w-11 flex items-center justify-center hover:bg-emerald-700 rounded-xl text-white transition-colors"
           >
             <X className="h-6 w-6" />
           </button>
@@ -227,14 +229,16 @@ export function PatientDashboardClient() {
 
       {/* Floating Alert / Help Toast */}
       {helpAlertMessage && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-teal-800 text-white font-bold text-lg shadow-xl flex items-center justify-between border-2 border-teal-500 animate-in fade-in slide-in-from-top-4">
+        <div role="status" aria-live="polite" className="p-4 sm:p-5 rounded-2xl bg-teal-800 text-white font-bold text-lg shadow-xl flex items-center justify-between border-2 border-teal-500 animate-in fade-in slide-in-from-top-4">
           <div className="flex items-center gap-3">
             <PhoneCall className="h-7 w-7 text-amber-300" />
             <span>{helpAlertMessage}</span>
           </div>
           <button
+            type="button"
+            aria-label="Dismiss help message"
             onClick={() => setHelpAlertMessage(null)}
-            className="p-1 hover:bg-teal-900 rounded-lg text-white"
+            className="h-11 w-11 flex items-center justify-center hover:bg-teal-900 rounded-xl text-white transition-colors"
           >
             <X className="h-6 w-6" />
           </button>
@@ -526,11 +530,11 @@ export function PatientDashboardClient() {
 
       {/* SKIP REASON ACCESSIBLE DIALOG */}
       {skipModalOpen && selectedDoseForSkip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-labelledby="skip-dialog-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border-2 border-slate-300 space-y-6">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-2xl font-black text-slate-950">
+                <h3 id="skip-dialog-title" className="text-2xl font-black text-slate-950">
                   Skip {selectedDoseForSkip.name}?
                 </h3>
                 <p className="text-base text-slate-600 font-medium mt-1">
@@ -538,8 +542,10 @@ export function PatientDashboardClient() {
                 </p>
               </div>
               <button
+                type="button"
+                aria-label="Close skip dialog"
                 onClick={() => setSkipModalOpen(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="h-12 w-12 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X className="h-6 w-6" />
               </button>

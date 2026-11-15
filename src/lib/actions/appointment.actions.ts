@@ -23,13 +23,16 @@ export async function acknowledgeAppointment(
     const supabase = await createServerSupabaseClient();
 
     // 1. Fetch appointment record to check ownership and state
-    const { data: apt, error: fetchError } = await supabase
+    const { data: apt } = await supabase
       .from('appointments')
       .select('id, patient_id, status')
       .eq('id', appointmentId)
       .single();
 
-    const targetPatientId = apt?.patient_id || actor.patientId || '11111111-1111-1111-1111-111111111111';
+    const targetPatientId = apt?.patient_id || actor.patientId;
+    if (!targetPatientId) {
+      return { success: false, error: 'Appointment record not found or patient context missing.' };
+    }
 
     // 2. Validate permission
     const authCheck = await assertPatientPermission(actor, targetPatientId, 'can_acknowledge_appointments');
@@ -47,11 +50,11 @@ export async function acknowledgeAppointment(
       .update({
         status: 'ACKNOWLEDGED' as const,
         updated_at: new Date().toISOString(),
-      } as any)
+      })
       .eq('id', appointmentId)
       .eq('status', 'SCHEDULED');
 
-    if (error && fetchError) {
+    if (error) {
       return { success: false, error: error.message };
     }
 

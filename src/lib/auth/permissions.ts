@@ -139,7 +139,7 @@ export async function assertPatientPermission(
     // Query explicit patient assignment in production database
     try {
       const supabase = await createServerSupabaseClient();
-      const { data: assignment } = await supabase
+      const { data: assignment, error } = await supabase
         .from('patient_access')
         .select('id, status, permissions')
         .eq('patient_id', targetPatientId)
@@ -147,12 +147,17 @@ export async function assertPatientPermission(
         .eq('status', 'ACTIVE')
         .single();
 
-      if (assignment) {
+      if (!error && assignment) {
         return { allowed: true };
       }
+      if (actor.userId && !error && !assignment) {
+        return {
+          allowed: false,
+          reason: 'Forbidden: You do not have active clinical assignment to this patient.',
+        };
+      }
     } catch {
-      // Allow demo caretaker access when patient access records are unseeded
-      return { allowed: true };
+      // Allow fallback during local testing or unseeded environments
     }
 
     return { allowed: true };

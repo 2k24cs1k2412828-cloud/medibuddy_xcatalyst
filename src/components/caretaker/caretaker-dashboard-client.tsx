@@ -269,12 +269,17 @@ export function CaretakerDashboardClient() {
 
       {/* Action Notification */}
       {actionNotice && (
-        <div className="p-4 rounded-xl bg-teal-800 text-white font-bold text-base flex items-center justify-between shadow-md">
+        <div role="status" aria-live="polite" className="p-4 rounded-xl bg-teal-800 text-white font-bold text-base flex items-center justify-between shadow-md">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-emerald-400" />
             <span>{actionNotice}</span>
           </div>
-          <button onClick={() => setActionNotice(null)} className="p-1 hover:bg-teal-900 rounded">
+          <button
+            type="button"
+            aria-label="Dismiss notification"
+            onClick={() => setActionNotice(null)}
+            className="h-11 w-11 flex items-center justify-center hover:bg-teal-900 rounded-lg text-white transition-colors"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -282,12 +287,17 @@ export function CaretakerDashboardClient() {
 
       {/* Call Banner */}
       {callBanner && (
-        <div className="p-4 rounded-xl bg-blue-700 text-white font-bold text-base flex items-center justify-between shadow-md animate-in fade-in">
+        <div role="status" aria-live="polite" className="p-4 rounded-xl bg-blue-700 text-white font-bold text-base flex items-center justify-between shadow-md animate-in fade-in">
           <div className="flex items-center gap-2">
             <PhoneCall className="h-5 w-5 text-amber-300 animate-pulse" />
             <span>{callBanner}</span>
           </div>
-          <button onClick={() => setCallBanner(null)} className="p-1 hover:bg-blue-800 rounded">
+          <button
+            type="button"
+            aria-label="Dismiss call status"
+            onClick={() => setCallBanner(null)}
+            className="h-11 w-11 flex items-center justify-center hover:bg-blue-800 rounded-lg text-white transition-colors"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -539,15 +549,17 @@ export function CaretakerDashboardClient() {
 
       {/* RESOLVE ASSISTANCE MODAL */}
       {resolveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-labelledby="resolve-modal-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">
+              <h3 id="resolve-modal-title" className="text-xl font-bold text-slate-900">
                 Resolve Patient Assistance Request
               </h3>
               <button
+                type="button"
+                aria-label="Close resolve dialog"
                 onClick={() => setResolveModalOpen(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600"
+                className="h-11 w-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -585,15 +597,17 @@ export function CaretakerDashboardClient() {
 
       {/* ADD MEDICATION MODAL */}
       {addMedModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-labelledby="add-med-modal-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">
+              <h3 id="add-med-modal-title" className="text-xl font-bold text-slate-900">
                 Prescribe Medication for {currentPatient.name}
               </h3>
               <button
+                type="button"
+                aria-label="Close prescription dialog"
                 onClick={() => setAddMedModalOpen(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600"
+                className="h-11 w-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
