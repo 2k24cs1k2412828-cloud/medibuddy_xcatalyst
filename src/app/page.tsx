@@ -77,7 +77,7 @@ export default function HomePage() {
             </h1>
 
             <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
-              A collaborative, clinical-grade care platform connecting elderly patients, dedicated caregivers,
+              A collaborative healthcare platform connecting elderly patients, dedicated caregivers,
               and family circles. We simplify complex daily medication regimens, clinical visits,
               and health routines with dignity, high accessibility, and proactive automated safety reminders.
             </p>
@@ -91,7 +91,7 @@ export default function HomePage() {
               </Link>
               <Link href="/patient" className="w-full sm:w-auto">
                 <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg h-14 px-8 border-2 border-slate-300 hover:border-slate-400 bg-white">
-                  <span>Launch Elderly Kiosk (PIN: 1234)</span>
+                  <span>Launch Patient Kiosk View</span>
                 </Button>
               </Link>
             </div>
@@ -101,10 +101,10 @@ export default function HomePage() {
               <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs hover:border-teal-300 transition-colors">
                 <div className="flex items-center gap-2 text-teal-700 font-bold text-sm">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>WCAG AAA Accessible</span>
+                  <span>Accessibility-First</span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1.5 leading-snug">
-                  20px+ font scale & 60px tactile touch targets for elderly vision & motor dignity.
+                  20px+ font scale & 60px tactile touch targets designed following WCAG guidelines.
                 </p>
               </div>
 
@@ -341,10 +341,10 @@ export default function HomePage() {
                 Technical Governance
               </Badge>
               <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 leading-tight">
-                Architected with HIPAA-Aligned Safeguards
+                Data Privacy & System Governance Safeguards
               </h2>
               <p className="text-slate-600 text-base leading-relaxed">
-                MediCare Connect safeguards electronic Protected Health Information (ePHI) through defense-in-depth principles implemented across database, application, and edge transport layers.
+                MediCare Connect safeguards sensitive healthcare workflows through defense-in-depth engineering principles implemented across database, application, and edge transport layers.
               </p>
 
               <div className="space-y-4">
@@ -400,14 +400,14 @@ export default function HomePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60">
                   <p className="text-xs text-slate-400">Automated Assertions</p>
-                  <p className="text-2xl font-black text-white mt-1">105 / 105</p>
-                  <p className="text-[11px] text-emerald-400 mt-1">100% Tests Passing</p>
+                  <p className="text-2xl font-black text-white mt-1">105 Passed</p>
+                  <p className="text-[11px] text-emerald-400 mt-1">Security & Integration</p>
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60">
-                  <p className="text-xs text-slate-400">Accessibility Standard</p>
-                  <p className="text-2xl font-black text-white mt-1">WCAG AAA</p>
-                  <p className="text-[11px] text-teal-400 mt-1">60px Tactile Targets</p>
+                  <p className="text-xs text-slate-400">Ergonomics Focus</p>
+                  <p className="text-2xl font-black text-white mt-1">60px Tactile</p>
+                  <p className="text-[11px] text-teal-400 mt-1">High-Contrast Targets</p>
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60">

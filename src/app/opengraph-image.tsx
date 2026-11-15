@@ -69,7 +69,7 @@ export default async function Image() {
             color: '#99f6e4',
           }}
         >
-          <span>WCAG AAA Accessible</span>
+          <span>High Accessibility</span>
           <span>&bull;</span>
           <span>Smart Dosing</span>
           <span>&bull;</span>

@@ -111,7 +111,7 @@ export function LoginClient() {
     <Card className="w-full max-w-md shadow-xl border-slate-200 bg-white">
       <CardHeader className="space-y-1 pb-4">
         {/* Tab Switcher */}
-        <div className="flex rounded-xl bg-slate-100 p-1 mb-2 border border-slate-200" role="tablist" aria-label="Authentication Method">
+        <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 mb-3 border border-slate-200" role="tablist" aria-label="Authentication Method">
           <button
             type="button"
             role="tab"
@@ -120,10 +120,10 @@ export function LoginClient() {
               setAuthMode('STANDARD');
               setFormError(null);
             }}
-            className={`w-1/3 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`py-2 px-3 rounded-lg text-xs font-bold transition-colors ${
               authMode === 'STANDARD'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
             Sign In
@@ -136,10 +136,10 @@ export function LoginClient() {
               setAuthMode('PIN');
               setFormError(null);
             }}
-            className={`w-1/3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+            className={`py-2 px-3 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
               authMode === 'PIN'
                 ? 'bg-teal-700 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
             <KeyRound className="h-3.5 w-3.5" />
@@ -153,10 +153,10 @@ export function LoginClient() {
               setAuthMode('INVITE');
               setFormError(null);
             }}
-            className={`w-1/3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+            className={`py-2 px-3 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
               authMode === 'INVITE'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
             }`}
           >
             <UserPlus className="h-3.5 w-3.5" />
@@ -165,7 +165,7 @@ export function LoginClient() {
         </div>
 
         <div className="flex items-center justify-between">
-          <CardTitle className="text-2xl font-bold">
+          <CardTitle className="text-xl sm:text-2xl font-bold text-slate-950">
             {authMode === 'STANDARD' && 'Staff & Family Login'}
             {authMode === 'PIN' && 'Patient PIN Kiosk'}
             {authMode === 'INVITE' && 'Accept Invitation'}
@@ -175,12 +175,12 @@ export function LoginClient() {
             className="text-xs"
           >
             {authMode === 'STANDARD' && 'Supabase Auth'}
-            {authMode === 'PIN' && 'Robert Chen'}
+            {authMode === 'PIN' && 'Passcode Kiosk'}
             {authMode === 'INVITE' && 'Registration'}
           </Badge>
         </div>
-        <CardDescription>
-          {authMode === 'STANDARD' && 'Enter your credentials to access your authorized role dashboard.'}
+        <CardDescription className="text-slate-500 text-xs sm:text-sm">
+          {authMode === 'STANDARD' && 'Enter your authorized credentials to access your portal.'}
           {authMode === 'PIN' && 'Enter your 4-digit numeric PIN for elderly-friendly kiosk access.'}
           {authMode === 'INVITE' && 'Create your authorized caregiver or family circle account.'}
         </CardDescription>
@@ -209,7 +209,7 @@ export function LoginClient() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. sarah.jenkins@hospital.org"
+                  placeholder="name@organization.org"
                   className="flex h-11 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3.5 py-2 text-base text-slate-900 placeholder:text-slate-400 focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-700/20"
                 />
                 <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400 pointer-events-none" />

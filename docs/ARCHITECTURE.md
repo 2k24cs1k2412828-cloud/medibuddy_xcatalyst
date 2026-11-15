@@ -2,7 +2,7 @@
 
 ## 1. System Overview
 
-**MediCare Connect** is a clinical-grade, accessible healthcare collaboration platform architected specifically for elderly care ecosystems. It bridges the critical communication and adherence gap between **Elderly Patients**, **Clinical Caretakers**, **Family Members**, and **Healthcare Administrators**.
+**MediCare Connect** is a collaborative, accessible healthcare platform architected specifically for elderly care ecosystems. It bridges the critical communication and adherence gap between **Elderly Patients**, **Clinical Caretakers**, **Family Members**, and **Healthcare Administrators**.
 
 The application is built on **Next.js 15 (App Router)** with **TypeScript**, powered by a hardened **Supabase (PostgreSQL 15)** database backend, and orchestrated with an automated **Resend transactional email & notification worker engine**.
 
@@ -11,7 +11,7 @@ The application is built on **Next.js 15 (App Router)** with **TypeScript**, pow
 ## 2. Architectural Principles
 
 1. **Defense-in-Depth Security**: Every sensitive mutation is verified at multiple levels: Next.js middleware, authenticated Server Actions with input validation, and PostgreSQL Row-Level Security (RLS) enforcement at the storage tier.
-2. **Elderly-First Accessibility (WCAG 2.1 AAA)**: The patient user interface departs from dense SaaS paradigms in favor of tactile ergonomics: 20px+ base typography, 60px tactile touch targets, 4-digit PIN authentication, and high-contrast color ratios exceeding 7:1.
+2. **Elderly-First Accessibility**: The patient user interface departs from dense SaaS paradigms in favor of tactile ergonomics: 20px+ base typography, 60px tactile touch targets, 4-digit PIN authentication, and high-contrast color ratios exceeding 7:1 following WCAG 2.1 accessibility guidelines.
 3. **Immutable Clinical Auditing**: Patient dose logs, assistance calls, and administrative access records utilize append-only database triggers (`PREVENT_UPDATE` and `PREVENT_DELETE`) to provide an tamper-proof clinical trail.
 4. **Resilient Notification Delivery**: Notification dispatch follows an at-least-once model using database worker leases, bounded exponential backoff, and cryptographic idempotency keys (`X-Entity-Ref-ID`) to eliminate duplicate reminders.
 

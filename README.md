@@ -1,6 +1,6 @@
 # MediCare Connect
 
-> **A clinical-grade, collaborative healthcare platform designed to put elderly individuals at the center of medical decisions with dignity, high accessibility, and proactive care-circle coordination.**
+> **A collaborative healthcare platform designed to put elderly individuals at the center of medical decisions with dignity, high accessibility, and proactive care-circle coordination.**
 
 [![Production Live](https://img.shields.io/badge/Production-Live-0f766e?style=for-the-badge&logo=vercel&logoColor=white)](https://medibuddyxcatalyst.vercel.app/)
 [![Next.js](https://img.shields.io/badge/Next.js-15.5.29-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
@@ -9,7 +9,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169e1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-3ecf8e?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 [![Resend](https://img.shields.io/badge/Resend-Email%20API-000000?style=for-the-badge&logo=resend&logoColor=white)](https://resend.com/)
-[![WCAG](https://img.shields.io/badge/WCAG%202.1-AAA%20Accessible-15803d?style=for-the-badge)](https://www.w3.org/WAI/standards-guidelines/wcag/)
+[![Accessibility](https://img.shields.io/badge/Accessibility-WCAG%202.1%20Aligned-15803d?style=for-the-badge)](https://www.w3.org/WAI/standards-guidelines/wcag/)
 
 ---
 
@@ -77,7 +77,7 @@ graph TD
 
 ## ✨ Key Features
 
-- **Elderly-Accessible Kiosk Interface**: Frictionless 4-digit PIN authentication on shared family tablets, eliminating password fatigue. Includes 20px+ font scale, 60px tactile touch targets, and high color contrast (WCAG 2.1 AAA).
+- **Elderly-Accessible Kiosk Interface**: Frictionless 4-digit PIN authentication on shared family tablets, eliminating password fatigue. Includes 20px+ font scale, 60px tactile touch targets, and high color contrast designed following WCAG 2.1 accessibility guidelines.
 - **Smart Medication & Dose Tracking**: Scheduled dose logs are generated automatically. Doses are **never automatically marked taken**—requiring genuine patient or caregiver verification.
 - **Mandatory Clinical Skip Reasons**: Skipping a dose requires selecting a clinical rationale (e.g., *Nausea / Stomach Upset*, *Feeling Dizzy*, *Out of Medication*), immediately alerting caregivers.
 - **Appointment Management & Patient Acknowledgment**: Caretakers schedule visits; patients acknowledge upcoming appointments with a single touch.
@@ -122,7 +122,7 @@ Verified interface snapshots from the live application deployment:
 flowchart TD
     subgraph Clients["User Touchpoints"]
         Kiosk["Elderly Patient Tablet Kiosk
-        (4-Digit PIN • 60px Buttons • WCAG AAA)"]
+        (4-Digit PIN • 60px Buttons • High Contrast)"]
         Portal["Clinical & Family Web Portal
         (Caretaker • Admin • Family Circle)"]
     end
