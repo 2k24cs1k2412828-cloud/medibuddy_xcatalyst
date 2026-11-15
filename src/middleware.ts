@@ -2,6 +2,65 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 const KIOSK_COOKIE_NAME = 'medicare_kiosk_session';
+const USER_COOKIE_NAME = 'medicare_user_session';
+
+/**
+ * Validates the user token signature using standard Web Crypto API.
+ */
+async function isValidUserToken(token: string | undefined): Promise<{
+  valid: boolean;
+  role?: 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT';
+  userId?: string;
+}> {
+  if (!token) return { valid: false };
+
+  const secret = process.env.KIOSK_SESSION_SECRET || process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    return { valid: false };
+  }
+  const signingKey = secret || 'medicare-connect-dev-user-secret-key-2026';
+
+  const parts = token.split(':');
+  if (parts.length !== 6) return { valid: false };
+
+  const [userId, roleStr, expiresAtStr, encodedEmail, encodedName, receivedSig] = parts;
+  const expiresAt = parseInt(expiresAtStr, 10);
+  const now = Math.floor(Date.now() / 1000);
+  if (now > expiresAt) return { valid: false };
+
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(signingKey);
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+
+    const payload = `${userId}:${roleStr}:${expiresAtStr}:${encodedEmail}:${encodedName}`;
+    const signatureBuffer = await crypto.subtle.sign(
+      'HMAC',
+      cryptoKey,
+      encoder.encode(payload)
+    );
+
+    const hashArray = Array.from(new Uint8Array(signatureBuffer));
+    const expectedSig = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+    if (expectedSig === receivedSig) {
+      return {
+        valid: true,
+        role: roleStr as 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT',
+        userId,
+      };
+    }
+    return { valid: false };
+  } catch {
+    return { valid: false };
+  }
+}
 
 /**
  * Validates the kiosk token signature using standard Web Crypto API.
@@ -100,8 +159,14 @@ export async function middleware(request: NextRequest) {
   const kioskCookie = request.cookies.get(KIOSK_COOKIE_NAME)?.value;
   const kioskAuth = await isValidKioskToken(kioskCookie);
 
-  // 4. Determine user's database role if authenticated with Supabase
-  let userRole: 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT' | null = null;
+  // 4. Check for User HMAC session cookie
+  const userCookie = request.cookies.get(USER_COOKIE_NAME)?.value;
+  const userAuth = await isValidUserToken(userCookie);
+
+  // Determine user's effective authentication and role
+  const isAuthenticatedUser = Boolean(user) || userAuth.valid;
+  let userRole: 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT' | null = userAuth.role || null;
+
   if (user) {
     try {
       const { data: profile } = await supabase
@@ -114,11 +179,11 @@ export async function middleware(request: NextRequest) {
         userRole = profile.role as 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT';
       } else {
         const metaRole = user.user_metadata?.role as 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT' | undefined;
-        userRole = metaRole || 'CARETAKER';
+        userRole = metaRole || userRole || 'CARETAKER';
       }
     } catch {
       const metaRole = user.user_metadata?.role as 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT' | undefined;
-      userRole = metaRole || 'CARETAKER';
+      userRole = metaRole || userRole || 'CARETAKER';
     }
   }
 
@@ -132,7 +197,7 @@ export async function middleware(request: NextRequest) {
   // RULE A: /patient route access
   if (isPatientRoute) {
     // Valid if patient has active Kiosk token OR authenticated user
-    if (kioskAuth.valid || user) {
+    if (kioskAuth.valid || isAuthenticatedUser) {
       return response;
     }
     const redirectUrl = new URL('/login', request.url);
@@ -142,7 +207,7 @@ export async function middleware(request: NextRequest) {
 
   // RULE B: /admin route access (strictly ADMIN role)
   if (isAdminRoute) {
-    if (!user) {
+    if (!isAuthenticatedUser) {
       const redirectUrl = new URL('/login', request.url);
       redirectUrl.searchParams.set('redirectTo', '/admin');
       return NextResponse.redirect(redirectUrl);
@@ -163,7 +228,7 @@ export async function middleware(request: NextRequest) {
 
   // RULE C: /caretaker route access (CARETAKER or ADMIN)
   if (isCaretakerRoute) {
-    if (!user) {
+    if (!isAuthenticatedUser) {
       const redirectUrl = new URL('/login', request.url);
       redirectUrl.searchParams.set('redirectTo', '/caretaker');
       return NextResponse.redirect(redirectUrl);
@@ -178,7 +243,7 @@ export async function middleware(request: NextRequest) {
 
   // RULE D: /family route access (FAMILY or ADMIN)
   if (isFamilyRoute) {
-    if (!user) {
+    if (!isAuthenticatedUser) {
       const redirectUrl = new URL('/login', request.url);
       redirectUrl.searchParams.set('redirectTo', '/family');
       return NextResponse.redirect(redirectUrl);
@@ -192,7 +257,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // RULE E: /login route - redirect authenticated users to their dashboard
-  if (isLoginRoute && user && userRole) {
+  if (isLoginRoute && isAuthenticatedUser && userRole) {
     if (userRole === 'ADMIN') return NextResponse.redirect(new URL('/admin', request.url));
     if (userRole === 'CARETAKER') return NextResponse.redirect(new URL('/caretaker', request.url));
     if (userRole === 'FAMILY') return NextResponse.redirect(new URL('/family', request.url));

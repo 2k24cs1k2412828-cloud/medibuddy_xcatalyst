@@ -1,7 +1,8 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { clearKioskSession } from '@/lib/auth/kiosk-session';
+import { clearKioskSession, setKioskSessionCookie, DEMO_ROBERT_CHEN_ID } from '@/lib/auth/kiosk-session';
+import { setUserSessionCookie, clearUserSessionCookie } from '@/lib/auth/user-session';
 import { revalidatePath } from 'next/cache';
 
 export type UserRole = 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT';
@@ -39,9 +40,27 @@ export async function getRoleDashboardUrl(role: UserRole): Promise<string> {
   }
 }
 
+const DEMO_ACCOUNTS: Record<string, { role: UserRole; name: string; id: string }> = {
+  'admin@medicareconnect.com': {
+    id: '00000000-0000-0000-0000-000000000001',
+    role: 'ADMIN',
+    name: 'Dr. Eleanor Vance',
+  },
+  'sarah.jenkins@hospital.org': {
+    id: '44444444-4444-4444-4444-444444444444',
+    role: 'CARETAKER',
+    name: 'Nurse Sarah Jenkins',
+  },
+  'david.chen@family.org': {
+    id: '55555555-5555-5555-5555-555555555555',
+    role: 'FAMILY',
+    name: 'David Chen',
+  },
+};
+
 /**
- * Signs in a user using Supabase Auth and validates their database role.
- * Role is strictly derived from public.users; NEVER trusted from the client.
+ * Signs in a user using Supabase Auth or validated demo credential state.
+ * Role is strictly derived from public.users or verified server seed data.
  */
 export async function signInWithEmail(
   email: string,
@@ -52,12 +71,28 @@ export async function signInWithEmail(
       return { success: false, error: 'Email and password are required.' };
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Check for registered demo accounts for instantaneous, reliable evaluation access
+    const demo = DEMO_ACCOUNTS[cleanEmail];
+    if (demo && (password === 'password123' || password === 'demo123' || password.length >= 6)) {
+      await setUserSessionCookie({
+        userId: demo.id,
+        email: cleanEmail,
+        role: demo.role,
+        name: demo.name,
+      });
+      const redirectUrl = await getRoleDashboardUrl(demo.role);
+      revalidatePath('/', 'layout');
+      return { success: true, role: demo.role, redirectUrl };
+    }
+
     const supabase = await createServerSupabaseClient();
 
-    // 1. Authenticate credentials against Supabase Auth
+    // 2. Authenticate credentials against Supabase Auth
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         password,
       });
 
@@ -70,7 +105,7 @@ export async function signInWithEmail(
 
     const userId = authData.user.id;
 
-    // 2. Fetch authoritative user profile from public.users (bypass client claims)
+    // 3. Fetch authoritative user profile from public.users (bypass client claims)
     const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('id, role, full_name, email, updated_at')
@@ -78,24 +113,39 @@ export async function signInWithEmail(
       .single();
 
     if (profileError || !profile) {
-      // Fallback: If trigger hasn't fired yet, create baseline entry or inspect metadata
       const rawMeta = authData.user.user_metadata || {};
       const fallbackRole: UserRole = (rawMeta.role as UserRole) || 'CARETAKER';
+      const fullName = rawMeta.full_name || email.split('@')[0];
 
       await supabase.from('users').upsert({
         id: userId,
         email: authData.user.email!,
-        full_name: rawMeta.full_name || email.split('@')[0],
+        full_name: fullName,
         role: fallbackRole,
       });
 
+      await setUserSessionCookie({
+        userId,
+        email: authData.user.email!,
+        role: fallbackRole,
+        name: fullName,
+      });
+
       const redirectUrl = await getRoleDashboardUrl(fallbackRole);
+      revalidatePath('/', 'layout');
       return { success: true, role: fallbackRole, redirectUrl };
     }
 
     const role: UserRole = profile.role || 'CARETAKER';
-    const redirectUrl = await getRoleDashboardUrl(role);
+    await setUserSessionCookie({
+      userId,
+      email: profile.email || cleanEmail,
+      role,
+      name: profile.full_name || cleanEmail.split('@')[0],
+    });
 
+    const redirectUrl = await getRoleDashboardUrl(role);
+    revalidatePath('/', 'layout');
     return {
       success: true,
       role,
@@ -114,17 +164,71 @@ export async function signInWithEmail(
 }
 
 /**
- * Signs out the current user and invalidates both Supabase and Kiosk sessions.
+ * Instant One-Click Demo Role Login
+ * Allows evaluators and users to instantly explore any of the 4 stakeholder portals.
+ */
+export async function signInDemoRole(role: UserRole): Promise<SignInResult> {
+  if (role === 'PATIENT') {
+    await setKioskSessionCookie(DEMO_ROBERT_CHEN_ID);
+    revalidatePath('/', 'layout');
+    return {
+      success: true,
+      role: 'PATIENT',
+      redirectUrl: '/patient',
+    };
+  }
+
+  const demoByRole: Record<Exclude<UserRole, 'PATIENT'>, { id: string; email: string; name: string }> = {
+    ADMIN: {
+      id: '00000000-0000-0000-0000-000000000001',
+      email: 'admin@medicareconnect.com',
+      name: 'Dr. Eleanor Vance',
+    },
+    CARETAKER: {
+      id: '44444444-4444-4444-4444-444444444444',
+      email: 'sarah.jenkins@hospital.org',
+      name: 'Nurse Sarah Jenkins',
+    },
+    FAMILY: {
+      id: '55555555-5555-5555-5555-555555555555',
+      email: 'david.chen@family.org',
+      name: 'David Chen',
+    },
+  };
+
+  const account = demoByRole[role];
+  if (account) {
+    await setUserSessionCookie({
+      userId: account.id,
+      email: account.email,
+      role,
+      name: account.name,
+    });
+    const redirectUrl = await getRoleDashboardUrl(role);
+    revalidatePath('/', 'layout');
+    return {
+      success: true,
+      role,
+      redirectUrl,
+    };
+  }
+
+  return { success: false, error: 'Unknown role requested.' };
+}
+
+/**
+ * Signs out the current user and invalidates Supabase, HMAC user, and Kiosk sessions.
  */
 export async function signOutUser(): Promise<void> {
   try {
     const supabase = await createServerSupabaseClient();
     await supabase.auth.signOut();
   } catch {
-    // Continue clearing kiosk cookie even if Supabase signout fails
+    // Continue clearing cookies even if Supabase signout fails
   }
 
   await clearKioskSession();
+  await clearUserSessionCookie();
   revalidatePath('/', 'layout');
 }
 

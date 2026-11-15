@@ -2,9 +2,11 @@
 
 import {
   signInWithEmail,
+  signInDemoRole,
   signOutUser,
   acceptUserInvitation,
   SignInResult,
+  UserRole,
 } from '@/lib/auth/auth.service';
 import {
   verifyPatientPinAction as verifyKioskPin,
@@ -16,6 +18,13 @@ import {
  */
 export async function signInAction(email: string, password: string): Promise<SignInResult> {
   return signInWithEmail(email, password);
+}
+
+/**
+ * Server Action for instant one-click demo role exploration
+ */
+export async function signInDemoRoleAction(role: UserRole): Promise<SignInResult> {
+  return signInDemoRole(role);
 }
 
 /**

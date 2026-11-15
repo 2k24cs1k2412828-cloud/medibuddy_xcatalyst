@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getKioskSession } from '@/lib/auth/kiosk-session';
+import { getUserSession } from '@/lib/auth/user-session';
 
 export type UserRole = 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT' | 'SYSTEM';
 
@@ -57,10 +58,25 @@ export async function getTrustedActorContext(): Promise<ServerActorContext | nul
       };
     }
   } catch {
+    // Continue to evaluate HMAC user session
+  }
+
+  // 2. Check for active signed HMAC user session (dual-track auth)
+  try {
+    const userSession = await getUserSession();
+    if (userSession.authenticated && userSession.user) {
+      return {
+        type: 'USER',
+        userId: userSession.user.userId,
+        role: userSession.user.role,
+        name: userSession.user.name,
+      };
+    }
+  } catch {
     // Continue to evaluate kiosk session
   }
 
-  // 2. Check for active Kiosk patient session
+  // 3. Check for active Kiosk patient session
   try {
     const kiosk = await getKioskSession();
     if (kiosk.authenticated && kiosk.patientId) {
