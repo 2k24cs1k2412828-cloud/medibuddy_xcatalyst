@@ -198,7 +198,6 @@ export async function middleware(request: NextRequest) {
   const isAdminRoute = pathname.startsWith('/admin');
   const isCaretakerRoute = pathname.startsWith('/caretaker');
   const isFamilyRoute = pathname.startsWith('/family');
-  const isLoginRoute = pathname === '/login';
 
   // RULE A: /patient route access
   if (isPatientRoute) {
@@ -262,14 +261,7 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // RULE E: /login route - redirect authenticated users to their dashboard
-  if (isLoginRoute && isAuthenticatedUser && userRole) {
-    if (userRole === 'ADMIN') return NextResponse.redirect(new URL('/admin', request.url));
-    if (userRole === 'CARETAKER') return NextResponse.redirect(new URL('/caretaker', request.url));
-    if (userRole === 'FAMILY') return NextResponse.redirect(new URL('/family', request.url));
-    if (userRole === 'PATIENT') return NextResponse.redirect(new URL('/patient', request.url));
-  }
-
+  // Allow access to login or matching routes
   return response;
 }
 
@@ -279,6 +271,5 @@ export const config = {
     '/caretaker/:path*',
     '/family/:path*',
     '/patient/:path*',
-    '/login',
   ],
 };

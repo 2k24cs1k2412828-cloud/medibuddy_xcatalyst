@@ -14,11 +14,16 @@ import {
   Phone,
   X,
   PhoneCall,
+  UserPlus,
+  Users,
 } from 'lucide-react';
-import { resolveAssistanceRequest } from '@/lib/actions/assistance.actions';
-import { addMedication } from '@/lib/actions/medication.actions';
+import {
+  registerNewPatient,
+  prescribeMedication,
+  resolveAssistance,
+} from '@/lib/actions/clinical-data.actions';
 
-interface PatientData {
+export interface PatientData {
   id: string;
   name: string;
   age: number;
@@ -46,176 +51,110 @@ interface PatientData {
   }>;
 }
 
-const INITIAL_PATIENTS: PatientData[] = [
-  {
-    id: '11111111-1111-1111-1111-111111111111',
-    name: 'Robert Chen',
-    age: 78,
-    adherenceRate: 92,
-    nextDose: '8:00 PM (Tonight)',
-    pendingDoses: 1,
-    openRequests: 1,
-    doctorVisit: 'Thursday, 10:30 AM',
-    doctorName: 'Dr. Arthur Vance, MD (Cardiology)',
-    doctorClinic: 'St. Jude Medical Centre • Room 304',
-    visitAcknowledged: true,
-    medications: [
-      {
-        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-        name: 'Metformin Hydrochloride',
-        dosage: '500 mg',
-        form: 'Tablet',
-        schedule: 'Twice daily • Morning (8:00 AM) & Evening (8:00 PM) • With meals',
-        status: 'TAKEN',
-        statusText: 'Taken 8:05 AM',
-      },
-      {
-        id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-        name: 'Lisinopril',
-        dosage: '10 mg',
-        form: 'Tablet',
-        schedule: 'Once daily • Morning (8:00 AM) • Blood pressure regulation',
-        status: 'TAKEN',
-        statusText: 'Taken 8:05 AM',
-      },
-      {
-        id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-        name: 'Atorvastatin Calcium',
-        dosage: '20 mg',
-        form: 'Tablet',
-        schedule: 'Once daily • Evening (8:00 PM) • Take after dinner',
-        status: 'PENDING',
-        statusText: 'Due 8:00 PM Tonight',
-      },
-    ],
-    routines: [
-      {
-        title: 'Hydration: 6-8 Glasses of Water',
-        description: 'Target: Spread throughout the day',
-        completed: true,
-      },
-      {
-        title: 'Gentle 15-Minute Morning Walk',
-        description: 'Prescribed physical therapy routine',
-        completed: true,
-      },
-    ],
-  },
-  {
-    id: '22222222-2222-2222-2222-222222222222',
-    name: 'Margaret Taylor',
-    age: 82,
-    adherenceRate: 75,
-    nextDose: 'Tomorrow 8:00 AM',
-    pendingDoses: 0,
-    openRequests: 0,
-    doctorVisit: 'Next Monday, 2:00 PM',
-    doctorName: 'Dr. Sarah Connor, MD (Endocrinology)',
-    doctorClinic: 'Mount Sinai Clinic • Suite 102',
-    visitAcknowledged: false,
-    medications: [
-      {
-        id: 'med-margaret-01',
-        name: 'Alendronate Sodium',
-        dosage: '70 mg',
-        form: 'Tablet',
-        schedule: 'Weekly • Monday morning on empty stomach with water',
-        status: 'TAKEN',
-        statusText: 'Taken 7:30 AM',
-      },
-      {
-        id: 'med-margaret-02',
-        name: 'Calcium + Vitamin D3',
-        dosage: '600 mg',
-        form: 'Tablet',
-        schedule: 'Daily with dinner',
-        status: 'TAKEN',
-        statusText: 'Taken with dinner',
-      },
-    ],
-    routines: [
-      {
-        title: 'Joint Mobility Stretches',
-        description: 'Morning gentle routine for osteoporosis',
-        completed: true,
-      },
-    ],
-  },
-  {
-    id: '33333333-3333-3333-3333-333333333333',
-    name: 'Harold Kumar',
-    age: 74,
-    adherenceRate: 100,
-    nextDose: 'Tomorrow 9:00 AM',
-    pendingDoses: 0,
-    openRequests: 0,
-    doctorVisit: 'Dec 2, 11:00 AM',
-    doctorName: 'Dr. James Wilson, MD (Cardiology)',
-    doctorClinic: 'St. Jude Heart Institute',
-    visitAcknowledged: true,
-    medications: [
-      {
-        id: 'med-harold-01',
-        name: 'Clopidogrel (Plavix)',
-        dosage: '75 mg',
-        form: 'Tablet',
-        schedule: 'Once daily morning • Post-stent regimen',
-        status: 'TAKEN',
-        statusText: 'Taken 9:02 AM',
-      },
-    ],
-    routines: [
-      {
-        title: 'Blood Pressure Log',
-        description: 'Measure and record morning resting BP',
-        completed: true,
-      },
-    ],
-  },
-];
+export interface CaretakerDashboardProps {
+  initialData?: {
+    patients: any[];
+    activePatient: any | null;
+    medications: any[];
+    appointments: any[];
+    assistanceRequests: any[];
+    actorName: string;
+  };
+}
 
-export function CaretakerDashboardClient() {
+export function CaretakerDashboardClient({ initialData }: CaretakerDashboardProps) {
   const [isPending, startTransition] = useTransition();
-  const [patients, setPatients] = useState<PatientData[]>(INITIAL_PATIENTS);
-  const [selectedPatientId, setSelectedPatientId] = useState<string>(INITIAL_PATIENTS[0].id);
 
-  // Urgent Assistance Request state for Robert Chen
-  const [urgentRequestResolved, setUrgentRequestResolved] = useState(false);
+  // Map initialData patients or fallback
+  const mappedInitialPatients: PatientData[] = (initialData?.patients || []).map((p: any) => ({
+    id: p.id,
+    name: p.fullName || p.name,
+    age: p.age || 75,
+    adherenceRate: p.adherenceRate ?? 100,
+    nextDose: '8:00 PM Tonight',
+    pendingDoses: 1,
+    openRequests: 0,
+    doctorVisit: 'Thursday, 10:30 AM',
+    doctorName: 'Dr. Arthur Vance, MD',
+    doctorClinic: 'St. Jude Medical Centre',
+    visitAcknowledged: true,
+    medications: (initialData?.medications || []).filter((m: any) => m.patientId === p.id).map((m: any) => ({
+      id: m.id,
+      name: m.name,
+      dosage: m.dosage,
+      form: m.form || 'Tablet',
+      schedule: m.schedule,
+      status: m.status,
+      statusText: m.statusText,
+    })),
+    routines: [
+      {
+        title: 'Morning Blood Pressure Log',
+        description: 'Check resting BP before morning medications',
+        completed: true,
+      },
+      {
+        title: 'Hydration Intake',
+        description: 'Track daily 1.5L water intake goal',
+        completed: false,
+      },
+    ],
+  }));
+
+  const [patients, setPatients] = useState<PatientData[]>(mappedInitialPatients);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(
+    mappedInitialPatients.length > 0 ? mappedInitialPatients[0].id : ''
+  );
+
+  // Assistance requests state
+  const [assistanceRequests, setAssistanceRequests] = useState<any[]>(
+    initialData?.assistanceRequests || []
+  );
+
+  // Modals state
   const [resolveModalOpen, setResolveModalOpen] = useState(false);
-  const [resolutionNote, setResolutionNote] = useState('');
-
-  // Add Medication Modal state
+  const [selectedRequestId] = useState<string | null>(null);
   const [addMedModalOpen, setAddMedModalOpen] = useState(false);
+  const [registerPatientModalOpen, setRegisterPatientModalOpen] = useState(false);
+
+  // Add Medication form
   const [medName, setMedName] = useState('');
   const [medDosage, setMedDosage] = useState('');
   const [medForm, setMedForm] = useState<'TABLET' | 'CAPSULE' | 'SYRUP' | 'DROPS'>('TABLET');
-  const [medTime, setMedTime] = useState('08:00');
+  const [medTime, setMedTime] = useState('08:00 AM');
   const [medInstructions, setMedInstructions] = useState('');
 
-  // Call simulation banner
+  // Register Patient form
+  const [newPatientName, setNewPatientName] = useState('');
+  const [newPatientDob, setNewPatientDob] = useState('1950-01-01');
+  const [newPatientGender, setNewPatientGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('FEMALE');
+  const [newPatientContactName, setNewPatientContactName] = useState('');
+  const [newPatientContactPhone, setNewPatientContactPhone] = useState('');
+  const [newPatientPin, setNewPatientPin] = useState('1234');
+  const [newPatientConditions, setNewPatientConditions] = useState('');
+  const [newPatientAllergies, setNewPatientAllergies] = useState('');
+
+  // Banners & Notifications
   const [callBanner, setCallBanner] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const currentPatient =
     patients.find((p) => p.id === selectedPatientId) ?? patients[0];
 
-  const handleResolveAlert = () => {
-    setUrgentRequestResolved(true);
+  const handleResolveAlert = (reqId: string) => {
     setResolveModalOpen(false);
-    setActionNotice('Assistance request resolved and clinical note appended to audit log.');
+    setAssistanceRequests((prev) => prev.filter((r) => r.id !== reqId));
+    setActionNotice('Assistance request resolved successfully.');
     setTimeout(() => setActionNotice(null), 5000);
 
     startTransition(async () => {
-      await resolveAssistanceRequest(
-        '99999999-9999-9999-9999-999999999999',
-        resolutionNote || 'Caretaker contacted patient and refilled medication.'
-      );
+      await resolveAssistance(reqId);
     });
   };
 
   const handleAddMedicationSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!medName || !medDosage) return;
+    if (!medName || !medDosage || !currentPatient) return;
 
     const newMedId = `med-custom-${Date.now()}`;
     const newMed = {
@@ -225,7 +164,7 @@ export function CaretakerDashboardClient() {
       form: medForm,
       schedule: `Daily at ${medTime} • ${medInstructions || 'Take as prescribed'}`,
       status: 'PENDING' as const,
-      statusText: `Due ${medTime}`,
+      statusText: `Scheduled ${medTime}`,
     };
 
     setPatients((prev) =>
@@ -237,37 +176,95 @@ export function CaretakerDashboardClient() {
     );
 
     setAddMedModalOpen(false);
+    const targetName = currentPatient.name;
     setMedName('');
     setMedDosage('');
     setMedInstructions('');
-    setActionNotice(`Prescription "${medName} ${medDosage}" added for ${currentPatient.name}.`);
+    setActionNotice(`Prescription "${medName} ${medDosage}" prescribed for ${targetName}.`);
     setTimeout(() => setActionNotice(null), 5000);
 
     startTransition(async () => {
-      await addMedication({
+      await prescribeMedication({
         patientId: currentPatient.id,
         name: medName,
         dosage: medDosage,
         form: medForm,
-        frequencyType: 'DAILY',
-        reminderTimes: [medTime],
-        instructions: medInstructions,
-        startDate: new Date().toISOString().split('T')[0],
+        schedule: `Daily at ${medTime}`,
+        mealInstruction: medInstructions,
       });
     });
   };
 
+  const handleRegisterPatientSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPatientName || !newPatientContactName) return;
+
+    const conditions = newPatientConditions.split(',').map((s) => s.trim()).filter(Boolean);
+    const allergies = newPatientAllergies.split(',').map((s) => s.trim()).filter(Boolean);
+
+    startTransition(async () => {
+      const res = await registerNewPatient({
+        fullName: newPatientName,
+        dob: newPatientDob,
+        gender: newPatientGender,
+        emergencyContactName: newPatientContactName,
+        emergencyContactPhone: newPatientContactPhone,
+        medicalConditions: conditions,
+        allergies,
+        pin: newPatientPin || '1234',
+      });
+
+      if (res.success && res.patient) {
+        const added: PatientData = {
+          id: res.patient.id,
+          name: res.patient.fullName,
+          age: res.patient.age,
+          adherenceRate: 100,
+          nextDose: '8:00 AM Tomorrow',
+          pendingDoses: 0,
+          openRequests: 0,
+          doctorVisit: 'To be scheduled',
+          doctorName: 'Primary Care Physician',
+          doctorClinic: 'Community Health Centre',
+          visitAcknowledged: false,
+          medications: [],
+          routines: [],
+        };
+
+        setPatients((prev) => [added, ...prev]);
+        setSelectedPatientId(added.id);
+        setRegisterPatientModalOpen(false);
+        setNewPatientName('');
+        setNewPatientContactName('');
+        setNewPatientContactPhone('');
+        setNewPatientConditions('');
+        setNewPatientAllergies('');
+        setActionNotice(`Patient "${added.name}" registered successfully with Kiosk PIN ${newPatientPin}!`);
+        setTimeout(() => setActionNotice(null), 6000);
+      }
+    });
+  };
+
   const handleSimulateCall = (patientName: string) => {
-    setCallBanner(`Calling ${patientName} (+1 555-234-5678)... Connected.`);
+    setCallBanner(`Calling ${patientName}... Audio line open.`);
     setTimeout(() => setCallBanner(null), 5000);
   };
 
   return (
     <div className="space-y-8 pb-12">
       {/* Welcome Section */}
-      <WelcomeSection userName="Nurse Sarah Jenkins" role="CARETAKER" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <WelcomeSection userName={initialData?.actorName || 'Clinical Caregiver'} role="CARETAKER" />
+        <Button
+          onClick={() => setRegisterPatientModalOpen(true)}
+          className="bg-teal-700 hover:bg-teal-800 text-white font-bold h-11 px-5 shadow-sm shrink-0"
+        >
+          <UserPlus className="h-4 w-4 mr-2" />
+          <span>Register New Patient</span>
+        </Button>
+      </div>
 
-      {/* Action Notification */}
+      {/* Action Notification Banner */}
       {actionNotice && (
         <div role="status" aria-live="polite" className="p-4 rounded-xl bg-teal-800 text-white font-bold text-base flex items-center justify-between shadow-md">
           <div className="flex items-center gap-2">
@@ -285,7 +282,7 @@ export function CaretakerDashboardClient() {
         </div>
       )}
 
-      {/* Call Banner */}
+      {/* Call Audio Banner */}
       {callBanner && (
         <div role="status" aria-live="polite" className="p-4 rounded-xl bg-blue-700 text-white font-bold text-base flex items-center justify-between shadow-md animate-in fade-in">
           <div className="flex items-center gap-2">
@@ -303,43 +300,9 @@ export function CaretakerDashboardClient() {
         </div>
       )}
 
-      {/* Top Summary Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <DashboardStatCard
-          label="Assigned Patients"
-          value={String(patients.length)}
-          subtitle="All profiles active"
-          iconName="HeartHandshake"
-          variant="default"
-        />
-        <DashboardStatCard
-          label="Today's Doses Scheduled"
-          value="14"
-          change="12 Confirmed Taken"
-          trend="up"
-          iconName="Pill"
-          variant="success"
-        />
-        <DashboardStatCard
-          label="Upcoming Appointments"
-          value="2"
-          subtitle="This week"
-          iconName="Calendar"
-          variant="info"
-        />
-        <DashboardStatCard
-          label="Open Assistance Requests"
-          value={urgentRequestResolved ? '0' : '1'}
-          change={urgentRequestResolved ? 'All resolved' : '1 High Urgency'}
-          trend={urgentRequestResolved ? 'up' : 'down'}
-          iconName="AlertCircle"
-          variant={urgentRequestResolved ? 'success' : 'danger'}
-        />
-      </div>
-
-      {/* Urgent Alert Banner (Interactive) */}
-      {!urgentRequestResolved && (
-        <div className="p-4 rounded-xl border-2 border-amber-300 bg-amber-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Real-Time Open Assistance Requests */}
+      {assistanceRequests.map((req) => (
+        <div key={req.id} className="p-4 rounded-xl border-2 border-amber-300 bg-amber-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-lg bg-amber-200 text-amber-900 shrink-0 mt-0.5">
               <AlertCircle className="h-5 w-5" />
@@ -347,22 +310,20 @@ export function CaretakerDashboardClient() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-amber-950">
-                  Patient Assistance Request: Robert Chen
+                  Assistance Alert: {req.patientName}
                 </span>
                 <Badge variant="destructive" className="text-xs">
-                  Urgent
+                  {req.type === 'EMERGENCY_SOS' ? 'EMERGENCY SOS' : 'Urgent'}
                 </Badge>
               </div>
-              <p className="text-sm text-amber-900/90 mt-0.5">
-                &ldquo;Ran out of Atorvastatin 20mg refill. Need guidance on whether to take alternative tonight.&rdquo;
-              </p>
+              <p className="text-sm text-amber-900/90 mt-0.5">&ldquo;{req.message}&rdquo;</p>
             </div>
           </div>
           <div className="flex items-center gap-2.5 shrink-0">
             <Button
               size="sm"
               className="bg-teal-700 hover:bg-teal-800 text-white font-semibold"
-              onClick={() => setResolveModalOpen(true)}
+              onClick={() => handleResolveAlert(req.id)}
             >
               Respond &amp; Resolve
             </Button>
@@ -370,233 +331,365 @@ export function CaretakerDashboardClient() {
               size="sm"
               variant="outline"
               className="border-amber-300 bg-white"
-              onClick={() => handleSimulateCall('Robert Chen')}
+              onClick={() => handleSimulateCall(req.patientName)}
             >
               <Phone className="h-4 w-4 mr-1.5 text-teal-700" />
               <span>Call Patient</span>
             </Button>
           </div>
         </div>
-      )}
+      ))}
 
-      {/* Patient Selection & Today's Schedule Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Active Patients Column */}
-        <div className="space-y-6 lg:col-span-1">
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold">My Assigned Patients</CardTitle>
-                <CardDescription>Select patient to view details</CardDescription>
-              </div>
-              <Badge variant="info">{patients.length} Patients</Badge>
-            </CardHeader>
-            <CardContent className="space-y-2.5">
+      {/* When no patients are registered yet */}
+      {patients.length === 0 ? (
+        <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-12 text-center space-y-4">
+          <div className="h-14 w-14 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center mx-auto">
+            <Users className="h-7 w-7" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-xl font-bold text-slate-900">No Patients Registered Yet</h3>
+            <p className="text-sm text-slate-500 max-w-md mx-auto">
+              Get started by registering an elderly individual under your care. You will be able to manage their prescriptions, schedule clinical visits, and monitor daily adherence.
+            </p>
+          </div>
+          <Button
+            onClick={() => setRegisterPatientModalOpen(true)}
+            className="bg-teal-700 hover:bg-teal-800 text-white font-bold h-12 px-6 shadow-md"
+          >
+            <UserPlus className="h-5 w-5 mr-2" />
+            <span>Register Your First Patient</span>
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* Patient Selector Strip */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-900 uppercase tracking-wider text-xs">
+                Your Assigned Patients ({patients.length})
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {patients.map((p) => {
-                const isSelected = p.id === currentPatient.id;
+                const isSelected = p.id === currentPatient?.id;
                 return (
-                  <div
+                  <button
                     key={p.id}
+                    type="button"
                     onClick={() => setSelectedPatientId(p.id)}
-                    className={`p-3.5 rounded-xl cursor-pointer transition-all ${
+                    className={`p-4 rounded-xl text-left border-2 transition-all ${
                       isSelected
-                        ? 'border-2 border-teal-700 bg-teal-50/60 shadow-xs'
-                        : 'border border-slate-200 bg-white hover:bg-slate-50'
+                        ? 'border-teal-700 bg-white shadow-md ring-2 ring-teal-700/20'
+                        : 'border-slate-200 bg-white/70 hover:bg-white hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-slate-900 text-base">{p.name}</span>
-                      <Badge
-                        variant={p.adherenceRate >= 90 ? 'success' : 'warning'}
-                      >
+                      <Badge variant={p.adherenceRate >= 85 ? 'success' : 'warning'} className="text-xs">
                         {p.adherenceRate}% Adherence
                       </Badge>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      {p.age} yrs &bull; Next dose: {p.nextDose}
+                      Age {p.age} &bull; {p.medications.length} active prescription{p.medications.length === 1 ? '' : 's'}
                     </p>
-                    <div className="mt-2.5 flex items-center justify-between text-xs font-semibold text-slate-600">
-                      <span>{p.medications.length} prescriptions</span>
-                      {isSelected && (
-                        <span className="text-teal-800 font-bold">✓ Active View</span>
-                      )}
-                    </div>
-                  </div>
+                  </button>
                 );
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Upcoming Appointments Summary for Selected Patient */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-bold">Upcoming Doctor Visits</CardTitle>
-              <CardDescription>Scheduled for {currentPatient.name}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-bold text-teal-800">
-                  <span>CLINICAL VISIT</span>
-                  <span>{currentPatient.doctorVisit}</span>
-                </div>
-                <p className="font-bold text-slate-900 text-sm">{currentPatient.doctorName}</p>
-                <p className="text-xs text-slate-500">{currentPatient.doctorClinic}</p>
-                <div className="pt-1 flex items-center gap-1.5 text-xs text-emerald-700 font-semibold">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>
-                    {currentPatient.visitAcknowledged
-                      ? 'Acknowledged by Patient'
-                      : 'Pending Patient Acknowledgment'}
-                  </span>
-                </div>
+          {currentPatient && (
+            <>
+              {/* Patient Key Metrics */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <DashboardStatCard
+                  label="Daily Adherence Rate"
+                  value={`${currentPatient.adherenceRate}%`}
+                  iconName="CheckCircle"
+                  change={`${currentPatient.adherenceRate}% on-time`}
+                  trend={currentPatient.adherenceRate >= 80 ? "up" : "down"}
+                  variant={currentPatient.adherenceRate >= 80 ? "success" : "warning"}
+                />
+                <DashboardStatCard
+                  label="Active Prescriptions"
+                  value={String(currentPatient.medications.length)}
+                  iconName="Pill"
+                  subtitle="Monitored daily"
+                  variant="default"
+                />
+                <DashboardStatCard
+                  label="Upcoming Doctor Visit"
+                  value={currentPatient.doctorVisit}
+                  iconName="Calendar"
+                  subtitle={currentPatient.doctorClinic}
+                  variant="info"
+                />
+                <DashboardStatCard
+                  label="Emergency Contacts"
+                  value="1 Confirmed"
+                  iconName="HeartHandshake"
+                  subtitle="Family Circle linked"
+                  variant="default"
+                />
               </div>
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Patient Medication Plan & Live Adherence */}
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <div>
-                <CardTitle className="text-lg font-bold">
-                  Medication Schedule: {currentPatient.name}
-                </CardTitle>
-                <CardDescription>
-                  Configure dosages, frequency, reminder times, and food instructions.
-                </CardDescription>
-              </div>
-              <Button
-                size="sm"
-                className="bg-teal-700 hover:bg-teal-800 text-white font-semibold"
-                onClick={() => setAddMedModalOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                <span>Add Medication</span>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {currentPatient.medications.map((med) => {
-                  const isTaken = med.status === 'TAKEN';
-                  return (
-                    <div
-                      key={med.id}
-                      className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
-                        isTaken
-                          ? 'border-slate-200 bg-white'
-                          : 'border-2 border-teal-200 bg-teal-50/20'
-                      }`}
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 text-base">{med.name}</span>
-                          <Badge variant="default">{med.dosage}</Badge>
-                          <Badge variant="secondary">{med.form}</Badge>
-                        </div>
-                        <p className="text-xs text-slate-500">{med.schedule}</p>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        {isTaken ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                            <CheckCircle2 className="h-4 w-4" />
-                            <span>{med.statusText}</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-md border border-amber-300">
-                            <Clock className="h-4 w-4" />
-                            <span>{med.statusText}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Daily Healthcare Routines Checklist */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-bold">Daily Healthcare Routines</CardTitle>
-              <CardDescription>
-                Caretaker-defined wellness checklist for {currentPatient.name}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2.5">
-              {currentPatient.routines.map((routine, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3.5 rounded-lg border border-slate-200 bg-slate-50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-7 w-7 rounded-md bg-emerald-700 text-white flex items-center justify-center font-bold">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">{routine.title}</p>
-                      <p className="text-xs text-slate-500">{routine.description}</p>
-                    </div>
+              {/* Medication Management Section */}
+              <Card className="shadow-sm border-slate-200 bg-white">
+                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                  <div>
+                    <CardTitle className="text-xl font-bold text-slate-950">
+                      Prescription Regimen: {currentPatient.name}
+                    </CardTitle>
+                    <CardDescription className="text-slate-500 text-xs mt-0.5">
+                      Clinical dosages, schedules, and patient adherence records.
+                    </CardDescription>
                   </div>
-                  <Badge variant="success">Completed</Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                  <Button
+                    onClick={() => setAddMedModalOpen(true)}
+                    className="bg-teal-700 hover:bg-teal-800 text-white font-semibold text-xs h-9 px-4"
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    <span>Prescribe Medication</span>
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {currentPatient.medications.length === 0 ? (
+                    <div className="py-8 text-center text-slate-500 text-sm">
+                      No medications prescribed yet for this patient. Click &ldquo;Prescribe Medication&rdquo; above.
+                    </div>
+                  ) : (
+                    currentPatient.medications.map((med) => (
+                      <div
+                        key={med.id}
+                        className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 text-base">{med.name}</span>
+                            <Badge variant="outline" className="text-xs bg-white">
+                              {med.dosage}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              {med.form}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-600 flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-teal-700" />
+                            <span>{med.schedule}</span>
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            med.status === 'TAKEN'
+                              ? 'success'
+                              : med.status === 'SKIPPED'
+                              ? 'destructive'
+                              : 'warning'
+                          }
+                          className="self-start sm:self-center"
+                        >
+                          {med.statusText || med.status}
+                        </Badge>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </>
+      )}
 
-      {/* RESOLVE ASSISTANCE MODAL */}
-      {resolveModalOpen && (
+      {/* MODAL: Resolve Assistance Request */}
+      {resolveModalOpen && selectedRequestId && (
         <div role="dialog" aria-modal="true" aria-labelledby="resolve-modal-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between">
               <h3 id="resolve-modal-title" className="text-xl font-bold text-slate-900">
-                Resolve Patient Assistance Request
+                Resolve Patient Request
               </h3>
               <button
                 type="button"
                 aria-label="Close resolve dialog"
                 onClick={() => setResolveModalOpen(false)}
-                className="h-11 w-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="h-10 w-10 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <p className="text-sm text-slate-600">
-              Robert Chen requested guidance regarding an Atorvastatin 20mg refill.
+              Confirm resolution and record completion in clinical audit log.
             </p>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">
-                Clinical Resolution Note
-              </label>
-              <textarea
-                rows={3}
-                value={resolutionNote}
-                onChange={(e) => setResolutionNote(e.target.value)}
-                placeholder="e.g. Spoke with patient. Advised to take regular tomorrow morning. Refill sent to CVS Pharmacy."
-                className="w-full p-3 rounded-lg border border-slate-300 text-sm"
-              />
-            </div>
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex justify-end gap-3 pt-3">
               <Button variant="outline" onClick={() => setResolveModalOpen(false)}>
                 Cancel
               </Button>
               <Button
-                className="bg-teal-700 hover:bg-teal-800 text-white"
-                onClick={handleResolveAlert}
-                disabled={isPending}
+                className="bg-teal-700 hover:bg-teal-800 text-white font-bold"
+                onClick={() => handleResolveAlert(selectedRequestId)}
               >
-                Confirm &amp; Close Request
+                Confirm &amp; Resolve
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ADD MEDICATION MODAL */}
-      {addMedModalOpen && (
+      {/* MODAL: Register New Patient */}
+      {registerPatientModalOpen && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">Register New Patient</h3>
+              <button
+                type="button"
+                aria-label="Close dialog"
+                onClick={() => setRegisterPatientModalOpen(false)}
+                className="h-10 w-10 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleRegisterPatientSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Patient Legal Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Mary Johnson"
+                  value={newPatientName}
+                  onChange={(e) => setNewPatientName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Date of Birth *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={newPatientDob}
+                    onChange={(e) => setNewPatientDob(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={newPatientGender}
+                    onChange={(e) => setNewPatientGender(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                  >
+                    <option value="FEMALE">Female</option>
+                    <option value="MALE">Male</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Emergency Contact Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Robert Johnson (Son)"
+                    value={newPatientContactName}
+                    onChange={(e) => setNewPatientContactName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Emergency Phone *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="+1 555-0199"
+                    value={newPatientContactPhone}
+                    onChange={(e) => setNewPatientContactPhone(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Patient 4-Digit Tablet PIN *
+                </label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  required
+                  placeholder="1234"
+                  value={newPatientPin}
+                  onChange={(e) => setNewPatientPin(e.target.value.replace(/\D/g, ''))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono tracking-widest"
+                />
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  The patient will enter this PIN on the tablet kiosk to access their regimen.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Medical Diagnoses (comma separated)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Hypertension, Type 2 Diabetes"
+                  value={newPatientConditions}
+                  onChange={(e) => setNewPatientConditions(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Known Allergies (comma separated)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Penicillin, Aspirin"
+                  value={newPatientAllergies}
+                  onChange={(e) => setNewPatientAllergies(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setRegisterPatientModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isPending}
+                  className="bg-teal-700 hover:bg-teal-800 text-white font-bold"
+                >
+                  {isPending ? 'Registering...' : 'Register Patient'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Prescribe Medication */}
+      {addMedModalOpen && currentPatient && (
         <div role="dialog" aria-modal="true" aria-labelledby="add-med-modal-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between">
@@ -607,7 +700,7 @@ export function CaretakerDashboardClient() {
                 type="button"
                 aria-label="Close prescription dialog"
                 onClick={() => setAddMedModalOpen(false)}
-                className="h-11 w-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="h-10 w-10 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -620,7 +713,7 @@ export function CaretakerDashboardClient() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Amlodipine"
+                  placeholder="e.g. Lisinopril / Metformin"
                   value={medName}
                   onChange={(e) => setMedName(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
@@ -635,7 +728,7 @@ export function CaretakerDashboardClient() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. 5 mg"
+                    placeholder="e.g. 10 mg / 500 mg"
                     value={medDosage}
                     onChange={(e) => setMedDosage(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
@@ -647,7 +740,7 @@ export function CaretakerDashboardClient() {
                   </label>
                   <select
                     value={medForm}
-                    onChange={(e) => setMedForm(e.target.value as 'TABLET' | 'CAPSULE' | 'SYRUP' | 'DROPS')}
+                    onChange={(e) => setMedForm(e.target.value as any)}
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
                   >
                     <option value="TABLET">Tablet</option>
@@ -658,45 +751,33 @@ export function CaretakerDashboardClient() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
-                    Reminder Time
-                  </label>
-                  <input
-                    type="time"
-                    value={medTime}
-                    onChange={(e) => setMedTime(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
-                    Frequency
-                  </label>
-                  <input
-                    type="text"
-                    disabled
-                    value="Daily"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-sm text-slate-600"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Schedule Time
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 08:00 AM"
+                  value={medTime}
+                  onChange={(e) => setMedTime(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
-                  Instructions / Food notes
+                  Instructions / Food Notes
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Take with morning breakfast"
+                  placeholder="e.g. Take with morning meal and water"
                   value={medInstructions}
                   onChange={(e) => setMedInstructions(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="outline"
@@ -706,10 +787,10 @@ export function CaretakerDashboardClient() {
                 </Button>
                 <Button
                   type="submit"
-                  className="bg-teal-700 hover:bg-teal-800 text-white font-semibold"
                   disabled={isPending}
+                  className="bg-teal-700 hover:bg-teal-800 text-white font-bold"
                 >
-                  Save Prescription
+                  {isPending ? 'Prescribing...' : 'Prescribe Medication'}
                 </Button>
               </div>
             </form>

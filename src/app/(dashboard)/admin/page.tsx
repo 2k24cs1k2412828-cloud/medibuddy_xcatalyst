@@ -1,10 +1,13 @@
 import { PageContainer } from "@/components/layout/page-container";
 import { AdminDashboardClient } from "@/components/admin/admin-dashboard-client";
+import { getAdminDashboardData } from "@/lib/actions/clinical-data.actions";
 
-export default function AdminDashboardPage() {
+export default async function AdminDashboardPage() {
+  const data = await getAdminDashboardData();
+
   return (
     <PageContainer>
-      <AdminDashboardClient />
+      <AdminDashboardClient initialData={data} />
     </PageContainer>
   );
 }

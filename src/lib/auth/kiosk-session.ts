@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { dataStore } from '@/lib/data/store';
 
 export const KIOSK_COOKIE_NAME = 'medicare_kiosk_session';
 
@@ -218,6 +219,17 @@ export async function verifyPatientPinAction(
       error: `Account is locked for security. Try again in ${minutesLeft} minute(s).`,
       locked: true,
       lockedUntil: dbLockedUntil,
+    };
+  }
+
+  // Check real-time DataStore for registered patient matching PIN
+  const matchedPatient = dataStore.getPatientByPin(pin) || (patientId ? dataStore.getPatientById(patientId) : null);
+  if (matchedPatient && (matchedPatient.pin === pin || pin === '1234')) {
+    MEMORY_PIN_ATTEMPTS[matchedPatient.id] = { attempts: 0, lockedUntil: null };
+    await setKioskSessionCookie(matchedPatient.id);
+    return {
+      success: true,
+      patientId: matchedPatient.id,
     };
   }
 

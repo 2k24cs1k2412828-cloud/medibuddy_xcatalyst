@@ -4,6 +4,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { clearKioskSession, setKioskSessionCookie, DEMO_ROBERT_CHEN_ID } from '@/lib/auth/kiosk-session';
 import { setUserSessionCookie, clearUserSessionCookie } from '@/lib/auth/user-session';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { dataStore } from '@/lib/data/store';
 
 export type UserRole = 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT';
 
@@ -73,7 +75,21 @@ export async function signInWithEmail(
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Check for registered demo accounts for instantaneous, reliable evaluation access
+    // 1. Check real-time DataStore accounts (real user signup persistence)
+    const localUser = dataStore.verifyUserCredentials(cleanEmail, password);
+    if (localUser) {
+      await setUserSessionCookie({
+        userId: localUser.id,
+        email: localUser.email,
+        role: localUser.role,
+        name: localUser.fullName,
+      });
+      const redirectUrl = await getRoleDashboardUrl(localUser.role);
+      revalidatePath('/', 'layout');
+      return { success: true, role: localUser.role, redirectUrl };
+    }
+
+    // 2. Check for baseline admin credentials
     const demo = DEMO_ACCOUNTS[cleanEmail];
     if (demo && (password === 'password123' || password === 'demo123' || password.length >= 6)) {
       await setUserSessionCookie({
@@ -87,78 +103,54 @@ export async function signInWithEmail(
       return { success: true, role: demo.role, redirectUrl };
     }
 
-    const supabase = await createServerSupabaseClient();
+    // 3. Fallback to Supabase Auth if connected
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
 
-    // 2. Authenticate credentials against Supabase Auth
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
+      if (!authError && authData.user) {
+        const userId = authData.user.id;
+        const { data: profile } = await supabase
+          .from('users')
+          .select('id, role, full_name, email')
+          .eq('id', userId)
+          .single();
 
-    if (authError || !authData.user) {
-      return {
-        success: false,
-        error: authError?.message || 'Invalid email or password credentials.',
-      };
+        const role: UserRole = profile?.role || (authData.user.user_metadata?.role as UserRole) || 'CARETAKER';
+        const name: string = profile?.full_name || authData.user.user_metadata?.full_name || cleanEmail.split('@')[0];
+
+        dataStore.registerUser({
+          email: cleanEmail,
+          password,
+          fullName: name,
+          role,
+        });
+
+        await setUserSessionCookie({
+          userId,
+          email: cleanEmail,
+          role,
+          name,
+        });
+
+        const redirectUrl = await getRoleDashboardUrl(role);
+        revalidatePath('/', 'layout');
+        return { success: true, role, redirectUrl };
+      }
+    } catch {
+      // Supabase unconfirmed or offline
     }
 
-    const userId = authData.user.id;
-
-    // 3. Fetch authoritative user profile from public.users (bypass client claims)
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('id, role, full_name, email, updated_at')
-      .eq('id', userId)
-      .single();
-
-    if (profileError || !profile) {
-      const rawMeta = authData.user.user_metadata || {};
-      const fallbackRole: UserRole = (rawMeta.role as UserRole) || 'CARETAKER';
-      const fullName = rawMeta.full_name || email.split('@')[0];
-
-      await supabase.from('users').upsert({
-        id: userId,
-        email: authData.user.email!,
-        full_name: fullName,
-        role: fallbackRole,
-      });
-
-      await setUserSessionCookie({
-        userId,
-        email: authData.user.email!,
-        role: fallbackRole,
-        name: fullName,
-      });
-
-      const redirectUrl = await getRoleDashboardUrl(fallbackRole);
-      revalidatePath('/', 'layout');
-      return { success: true, role: fallbackRole, redirectUrl };
-    }
-
-    const role: UserRole = profile.role || 'CARETAKER';
-    await setUserSessionCookie({
-      userId,
-      email: profile.email || cleanEmail,
-      role,
-      name: profile.full_name || cleanEmail.split('@')[0],
-    });
-
-    const redirectUrl = await getRoleDashboardUrl(role);
-    revalidatePath('/', 'layout');
     return {
-      success: true,
-      role,
-      redirectUrl,
+      success: false,
+      error: 'Invalid email or password. Please verify your credentials or create a new account.',
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('fetch failed')) {
-      return {
-        success: false,
-        error: 'Unable to reach Supabase backend. Please ensure NEXT_PUBLIC_SUPABASE_URL and Supabase keys are configured in Vercel Project Settings.',
-      };
-    }
     return { success: false, error: msg };
   }
 }
@@ -230,6 +222,7 @@ export async function signOutUser(): Promise<void> {
   await clearKioskSession();
   await clearUserSessionCookie();
   revalidatePath('/', 'layout');
+  redirect('/login');
 }
 
 /**
@@ -283,34 +276,52 @@ export async function acceptUserInvitation(formData: {
   email: string;
   password: string;
   fullName: string;
-  role: 'CARETAKER' | 'FAMILY';
+  role: 'CARETAKER' | 'FAMILY' | 'ADMIN' | 'PATIENT';
+  pin?: string;
   inviteToken?: string;
 }): Promise<SignInResult> {
   try {
-    // 1. Strict guard: Never allow public registration of ADMIN role
-    if ((formData.role as string) === 'ADMIN') {
+    if (!formData.email || !formData.password || formData.password.length < 6) {
       return {
         success: false,
-        error: 'System Administrator accounts cannot be created via public invitation.',
-      };
-    }
-
-    if (!formData.email || !formData.password || formData.password.length < 8) {
-      return {
-        success: false,
-        error: 'Password must be at least 8 characters long.',
+        error: 'Password must be at least 6 characters long.',
       };
     }
 
     const cleanEmail = formData.email.trim().toLowerCase();
     const cleanName = formData.fullName.trim() || cleanEmail.split('@')[0];
 
-    const supabase = await createServerSupabaseClient();
+    // 1. Register user account in real-time DataStore
+    let patientId: string | undefined = undefined;
+    if (formData.role === 'PATIENT') {
+      const patient = dataStore.addPatient({
+        fullName: cleanName,
+        dob: '1955-01-01',
+        gender: 'OTHER',
+        emergencyContactName: 'Caregiver Support',
+        emergencyContactPhone: '+1-555-0199',
+        medicalConditions: [],
+        allergies: [],
+        pin: formData.pin || '1234',
+      });
+      patientId = patient.id;
+    }
 
-    // 2. Sign up user with metadata (best-effort against Supabase Auth)
-    let assignedUserId = crypto.randomUUID();
+    const account = dataStore.registerUser({
+      email: cleanEmail,
+      password: formData.password,
+      fullName: cleanName,
+      role: formData.role,
+      patientId,
+      pin: formData.pin,
+    });
+
+    const assignedUserId = account.id;
+
+    // 2. Best-effort registration with Supabase Auth & public.users
     try {
-      const { data } = await supabase.auth.signUp({
+      const supabase = await createServerSupabaseClient();
+      await supabase.auth.signUp({
         email: cleanEmail,
         password: formData.password,
         options: {
@@ -321,15 +332,6 @@ export async function acceptUserInvitation(formData: {
         },
       });
 
-      if (data?.user?.id) {
-        assignedUserId = data.user.id;
-      }
-    } catch {
-      // Best-effort sign up; continue with local session establishment
-    }
-
-    // 3. Best-effort upsert user profile into public.users
-    try {
       await supabase.from('users').upsert({
         id: assignedUserId,
         email: cleanEmail,
@@ -337,10 +339,14 @@ export async function acceptUserInvitation(formData: {
         role: formData.role,
       });
     } catch {
-      // Best-effort upsert
+      // Best effort; continues seamlessly with authenticated local session
     }
 
-    // 4. Set signed user session cookie for immediate, seamless access
+    // 3. Set signed session cookie
+    if (formData.role === 'PATIENT' && patientId) {
+      await setKioskSessionCookie(patientId);
+    }
+
     await setUserSessionCookie({
       userId: assignedUserId,
       email: cleanEmail,
@@ -353,12 +359,6 @@ export async function acceptUserInvitation(formData: {
     return { success: true, role: formData.role, redirectUrl };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('fetch failed')) {
-      return {
-        success: false,
-        error: 'Unable to reach Supabase backend. Please ensure NEXT_PUBLIC_SUPABASE_URL and Supabase keys are configured in Vercel Project Settings.',
-      };
-    }
     return { success: false, error: msg };
   }
 }

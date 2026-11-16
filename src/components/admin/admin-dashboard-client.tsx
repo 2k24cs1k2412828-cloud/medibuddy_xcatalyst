@@ -14,7 +14,7 @@ import {
   X,
   Filter,
 } from 'lucide-react';
-import { registerPatient } from '@/lib/actions/patient.actions';
+import { registerNewPatient } from '@/lib/actions/clinical-data.actions';
 
 interface PatientRecord {
   id: string;
@@ -109,10 +109,42 @@ const INITIAL_AUDITS: AuditRecord[] = [
   },
 ];
 
-export function AdminDashboardClient() {
+export interface AdminDashboardProps {
+  initialData?: {
+    actorName: string;
+    totalUsers: number;
+    totalPatients: number;
+    patients: any[];
+    audits: any[];
+  };
+}
+
+export function AdminDashboardClient({ initialData }: AdminDashboardProps) {
   const [isPending, startTransition] = useTransition();
-  const [patients, setPatients] = useState<PatientRecord[]>(INITIAL_PATIENTS);
-  const [audits, setAudits] = useState<AuditRecord[]>(INITIAL_AUDITS);
+
+  const mappedPatients: PatientRecord[] = (initialData?.patients || []).map((p: any) => ({
+    id: p.id,
+    name: p.fullName || p.name,
+    age: p.age || 75,
+    gender: p.gender || 'OTHER',
+    caregiver: 'Assigned Caregiver',
+    familyContact: p.emergencyContactName || 'Family Contact',
+    status: 'ACTIVE',
+    adherence: p.adherenceRate ?? 100,
+  }));
+
+  const mappedAudits: AuditRecord[] = (initialData?.audits || []).map((a: any) => ({
+    id: a.id,
+    time: new Date(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    actor: a.actor,
+    role: a.role,
+    action: a.action,
+    entity: a.target,
+    details: a.details,
+  }));
+
+  const [patients, setPatients] = useState<PatientRecord[]>(mappedPatients.length > 0 ? mappedPatients : INITIAL_PATIENTS);
+  const [audits, setAudits] = useState<AuditRecord[]>(mappedAudits.length > 0 ? mappedAudits : INITIAL_AUDITS);
   const [filterEntity, setFilterEntity] = useState<string>('ALL');
 
   // Register Patient Modal
@@ -168,7 +200,7 @@ export function AdminDashboardClient() {
     setTimeout(() => setNotice(null), 5000);
 
     startTransition(async () => {
-      await registerPatient({
+      await registerNewPatient({
         fullName: newPatientName,
         dob: newPatientDob,
         gender: newPatientGender,
@@ -208,7 +240,7 @@ export function AdminDashboardClient() {
   return (
     <div className="space-y-8 pb-12">
       {/* Welcome Section */}
-      <WelcomeSection userName="Dr. Eleanor Vance" role="ADMIN" />
+      <WelcomeSection userName={initialData?.actorName || "System Administrator"} role="ADMIN" />
 
       {/* Action Notice */}
       {notice && (

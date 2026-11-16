@@ -35,13 +35,14 @@ export async function verifyPinAction(patientId: string, pin: string): Promise<P
 }
 
 /**
- * Server Action for accepting an invitation / user registration
+ * Server Action for user registration and sign-up
  */
 export async function acceptInviteAction(formData: {
   email: string;
   password: string;
   fullName: string;
-  role: 'CARETAKER' | 'FAMILY';
+  role: 'CARETAKER' | 'FAMILY' | 'ADMIN' | 'PATIENT';
+  pin?: string;
 }): Promise<SignInResult> {
   return acceptUserInvitation(formData);
 }
