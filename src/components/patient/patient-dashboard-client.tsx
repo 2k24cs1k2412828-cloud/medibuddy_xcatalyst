@@ -302,7 +302,7 @@ export function PatientDashboardClient({ initialData }: PatientDashboardProps) {
                       {isTaken && (
                         <div className="flex items-center gap-3 text-emerald-800 font-black text-xl py-2 px-4 bg-emerald-100/70 rounded-2xl border border-emerald-300">
                           <CheckCircle2 className="h-7 w-7 text-emerald-700" />
-                          <span>Logged at {dose.actionTime || '8:05 AM'}</span>
+                          <span>Logged at {dose.actionTime || 'Recorded'}</span>
                         </div>
                       )}
 

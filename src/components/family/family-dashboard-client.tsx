@@ -32,8 +32,8 @@ export function FamilyDashboardClient({ initialData }: FamilyDashboardProps) {
   const actorName = initialData?.actorName || 'Family Member';
   const patient = initialData?.patient;
   const patientName = patient?.fullName || 'Loved One';
-  const patientAge = patient?.age || 78;
-  const adherenceRate = initialData?.adherenceRate ?? 95;
+  const patientAge = patient?.age || 75;
+  const adherenceRate = initialData?.adherenceRate ?? 100;
 
   const medications = initialData?.medications || [];
   const takenCount = medications.filter((m) => m.status === 'TAKEN').length;
@@ -105,152 +105,168 @@ export function FamilyDashboardClient({ initialData }: FamilyDashboardProps) {
         </div>
       )}
 
-      {/* Top Summary Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <DashboardStatCard
-          label="Monitored Loved One"
-          value={patientName}
-          subtitle={`Age ${patientAge} • Family Circle`}
-          iconName="HeartHandshake"
-          variant="default"
-        />
-        <DashboardStatCard
-          label="Daily Adherence Rate"
-          value={`${adherenceRate}%`}
-          subtitle="Real-time compliance"
-          change={`${adherenceRate}% on-time`}
-          trend={adherenceRate >= 80 ? "up" : "down"}
-          iconName="CheckCircle"
-          variant={adherenceRate >= 80 ? "success" : "warning"}
-        />
-        <DashboardStatCard
-          label="Next Doctor Visit"
-          value={initialData?.appointments?.[0]?.scheduledAt || "Thursday 10:30 AM"}
-          subtitle={initialData?.appointments?.[0]?.clinic || "St. Jude Heart Institute"}
-          iconName="Calendar"
-          variant="info"
-        />
-        <DashboardStatCard
-          label="Today's Doses Taken"
-          value={`${takenCount} of ${totalCount}`}
-          subtitle={`${Math.max(0, totalCount - takenCount)} remaining today`}
-          iconName="Pill"
-          variant="warning"
-        />
-      </div>
+      {!patient ? (
+        <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-12 text-center space-y-4">
+          <div className="h-14 w-14 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center mx-auto">
+            <Heart className="h-7 w-7 text-teal-700" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-xl font-bold text-slate-900">No Patient Connected to Family Circle Yet</h3>
+            <p className="text-sm text-slate-500 max-w-md mx-auto">
+              Once an elderly patient is registered in the system, their daily medication adherence, dose times, and doctor appointments will appear here in real time.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Top Summary Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <DashboardStatCard
+              label="Monitored Loved One"
+              value={patientName}
+              subtitle={`Age ${patientAge} • Family Circle`}
+              iconName="HeartHandshake"
+              variant="default"
+            />
+            <DashboardStatCard
+              label="Daily Adherence Rate"
+              value={`${adherenceRate}%`}
+              subtitle="Real-time compliance"
+              change={`${adherenceRate}% on-time`}
+              trend={adherenceRate >= 80 ? "up" : "down"}
+              iconName="CheckCircle"
+              variant={adherenceRate >= 80 ? "success" : "warning"}
+            />
+            <DashboardStatCard
+              label="Next Doctor Visit"
+              value={initialData?.appointments?.[0]?.scheduledAt || "No upcoming visits"}
+              subtitle={initialData?.appointments?.[0]?.clinic || "Clinical Facility"}
+              iconName="Calendar"
+              variant="info"
+            />
+            <DashboardStatCard
+              label="Today's Doses Taken"
+              value={`${takenCount} of ${totalCount}`}
+              subtitle={`${Math.max(0, totalCount - takenCount)} remaining today`}
+              iconName="Pill"
+              variant="warning"
+            />
+          </div>
 
-      {/* Two-Column Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="space-y-6 lg:col-span-2">
-          {/* Today's Medication Tracker */}
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-xl font-bold text-slate-900">
-                  Today&apos;s Medication Adherence: {patientName}
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-500">
-                  Live status updates transmitted from the bedside tablet kiosk.
-                </CardDescription>
-              </div>
-              <Button
-                size="sm"
-                className="bg-pink-600 hover:bg-pink-700 text-white font-bold"
-                onClick={() => setEncourageModalOpen(true)}
-              >
-                <Heart className="h-4 w-4 mr-1.5 fill-white" />
-                <span>Send Note to Tablet</span>
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {medications.length === 0 ? (
-                <div className="py-8 text-center text-slate-500 text-sm">
-                  No medications scheduled for today.
-                </div>
-              ) : (
-                medications.map((med) => (
-                  <div
-                    key={med.id}
-                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          {/* Two-Column Overview */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="space-y-6 lg:col-span-2">
+              {/* Today's Medication Tracker */}
+              <Card>
+                <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl font-bold text-slate-900">
+                      Today&apos;s Medication Adherence: {patientName}
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500">
+                      Live status updates transmitted from the bedside tablet kiosk.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="bg-pink-600 hover:bg-pink-700 text-white font-bold"
+                    onClick={() => setEncourageModalOpen(true)}
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 text-base">{med.name}</span>
-                        <Badge variant="outline" className="text-xs bg-white">
-                          {med.dosage}
+                    <Heart className="h-4 w-4 mr-1.5 fill-white" />
+                    <span>Send Note to Tablet</span>
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {medications.length === 0 ? (
+                    <div className="py-8 text-center text-slate-500 text-sm">
+                      No medications scheduled for today.
+                    </div>
+                  ) : (
+                    medications.map((med) => (
+                      <div
+                        key={med.id}
+                        className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 text-base">{med.name}</span>
+                            <Badge variant="outline" className="text-xs bg-white">
+                              {med.dosage}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-teal-700" />
+                            <span>{med.schedule}</span>
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            med.status === 'TAKEN'
+                              ? 'success'
+                              : med.status === 'SKIPPED'
+                              ? 'destructive'
+                              : 'warning'
+                          }
+                          className="self-start sm:self-center"
+                        >
+                          {med.statusText || med.status}
                         </Badge>
                       </div>
-                      <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 text-teal-700" />
-                        <span>{med.schedule}</span>
-                      </p>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Sidebar: Contact & Circle */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-bold text-slate-900">
+                    Direct Emergency Contacts
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500">
+                    One-tap voice assistance to caregivers and emergency services.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{patientName}</p>
+                      <p className="text-xs text-slate-500">Patient Bedside / Tablet</p>
                     </div>
-                    <Badge
-                      variant={
-                        med.status === 'TAKEN'
-                          ? 'success'
-                          : med.status === 'SKIPPED'
-                          ? 'destructive'
-                          : 'warning'
-                      }
-                      className="self-start sm:self-center"
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-teal-300 text-teal-800 bg-white"
+                      onClick={() => handleCall(patientName, patient.emergencyContactPhone || '+1 (555) 0123')}
                     >
-                      {med.statusText || med.status}
-                    </Badge>
+                      <Phone className="h-3.5 w-3.5 mr-1" />
+                      <span>Call</span>
+                    </Button>
                   </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Right Sidebar: Contact & Circle */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-bold text-slate-900">
-                Direct Emergency Contacts
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500">
-                One-tap voice assistance to caregivers and emergency services.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-slate-900">{patientName}</p>
-                  <p className="text-xs text-slate-500">Patient Tablet</p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-teal-300 text-teal-800 bg-white"
-                  onClick={() => handleCall(patientName, '+1 555-0199')}
-                >
-                  <Phone className="h-3.5 w-3.5 mr-1" />
-                  <span>Call</span>
-                </Button>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-slate-900">Primary Caregiver</p>
-                  <p className="text-xs text-slate-500">Clinical Support Staff</p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-teal-300 text-teal-800 bg-white"
-                  onClick={() => handleCall('Caregiver', '+1 555-0188')}
-                >
-                  <Phone className="h-3.5 w-3.5 mr-1" />
-                  <span>Call</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">Primary Caregiver</p>
+                      <p className="text-xs text-slate-500">Clinical Support Staff</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-teal-300 text-teal-800 bg-white"
+                      onClick={() => handleCall('Caregiver', '+1 (555) 0199')}
+                    >
+                      <Phone className="h-3.5 w-3.5 mr-1" />
+                      <span>Call</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ENCOURAGEMENT MODAL */}
       {encourageModalOpen && (

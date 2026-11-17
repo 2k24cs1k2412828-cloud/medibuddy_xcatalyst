@@ -18,8 +18,8 @@ export async function getCaretakerDashboardData(): Promise<{
   const actorName = actor?.name || 'Caregiver';
   const patients = dataStore.getPatients(actor?.userId);
   const activePatient = patients.length > 0 ? patients[0] : null;
-  const medications = activePatient ? dataStore.getMedications(activePatient.id) : [];
-  const appointments = activePatient ? dataStore.getAppointments(activePatient.id) : [];
+  const medications = patients.flatMap((p) => dataStore.getMedications(p.id));
+  const appointments = patients.flatMap((p) => dataStore.getAppointments(p.id));
   const assistanceRequests = dataStore.getAssistanceRequests();
 
   return {
@@ -149,6 +149,7 @@ export async function triggerEmergencySos(patientId: string, message: string = '
 
 export async function getFamilyDashboardData(): Promise<{
   actorName: string;
+  patients: PatientRecord[];
   patient: PatientRecord | null;
   medications: MedicationRecord[];
   appointments: AppointmentRecord[];
@@ -160,19 +161,21 @@ export async function getFamilyDashboardData(): Promise<{
   const allPatients = dataStore.getPatients();
   const patient = allPatients.length > 0 ? allPatients[0] : null;
 
-  const medications = patient ? dataStore.getMedications(patient.id) : [];
-  const appointments = patient ? dataStore.getAppointments(patient.id) : [];
+  const medications = allPatients.flatMap((p) => dataStore.getMedications(p.id));
+  const appointments = allPatients.flatMap((p) => dataStore.getAppointments(p.id));
   const encouragements = patient ? dataStore.getEncouragements(patient.id) : [];
 
-  const taken = medications.filter((m) => m.status === 'TAKEN').length;
-  const totalDecided = medications.filter((m) => m.status === 'TAKEN' || m.status === 'SKIPPED').length;
+  const patientMeds = patient ? medications.filter((m) => m.patientId === patient.id) : [];
+  const taken = patientMeds.filter((m) => m.status === 'TAKEN').length;
+  const totalDecided = patientMeds.filter((m) => m.status === 'TAKEN' || m.status === 'SKIPPED').length;
   const adherenceRate = totalDecided === 0 ? 100 : Math.round((taken / totalDecided) * 100);
 
   return {
     actorName,
+    patients: allPatients,
     patient,
-    medications,
-    appointments,
+    medications: patientMeds,
+    appointments: patient ? appointments.filter((a) => a.patientId === patient.id) : [],
     encouragements,
     adherenceRate,
   };
@@ -197,19 +200,25 @@ export async function getAdminDashboardData(): Promise<{
   actorName: string;
   totalUsers: number;
   totalPatients: number;
+  caretakersCount: number;
+  familyCount: number;
   patients: PatientRecord[];
   audits: AuditRecord[];
 }> {
   const actor = await getTrustedActorContext();
   const actorName = actor?.name || 'Administrator';
   const patients = dataStore.getPatients();
-  const totalUsers = dataStore.getAllUsers().length;
+  const allUsers = dataStore.getAllUsers();
+  const caretakersCount = allUsers.filter((u) => u.role === 'CARETAKER').length;
+  const familyCount = allUsers.filter((u) => u.role === 'FAMILY').length;
   const audits = dataStore.getAuditLogs(60);
 
   return {
     actorName,
-    totalUsers,
+    totalUsers: allUsers.length,
     totalPatients: patients.length,
+    caretakersCount,
+    familyCount,
     patients,
     audits,
   };

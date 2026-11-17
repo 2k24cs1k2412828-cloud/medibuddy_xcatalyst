@@ -16,10 +16,12 @@ import {
   PhoneCall,
   UserPlus,
   Users,
+  CalendarPlus,
 } from 'lucide-react';
 import {
   registerNewPatient,
   prescribeMedication,
+  scheduleAppointment,
   resolveAssistance,
 } from '@/lib/actions/clinical-data.actions';
 
@@ -65,41 +67,48 @@ export interface CaretakerDashboardProps {
 export function CaretakerDashboardClient({ initialData }: CaretakerDashboardProps) {
   const [isPending, startTransition] = useTransition();
 
-  // Map initialData patients or fallback
-  const mappedInitialPatients: PatientData[] = (initialData?.patients || []).map((p: any) => ({
-    id: p.id,
-    name: p.fullName || p.name,
-    age: p.age || 75,
-    adherenceRate: p.adherenceRate ?? 100,
-    nextDose: '8:00 PM Tonight',
-    pendingDoses: 1,
-    openRequests: 0,
-    doctorVisit: 'Thursday, 10:30 AM',
-    doctorName: 'Dr. Arthur Vance, MD',
-    doctorClinic: 'St. Jude Medical Centre',
-    visitAcknowledged: true,
-    medications: (initialData?.medications || []).filter((m: any) => m.patientId === p.id).map((m: any) => ({
-      id: m.id,
-      name: m.name,
-      dosage: m.dosage,
-      form: m.form || 'Tablet',
-      schedule: m.schedule,
-      status: m.status,
-      statusText: m.statusText,
-    })),
-    routines: [
-      {
-        title: 'Morning Blood Pressure Log',
-        description: 'Check resting BP before morning medications',
-        completed: true,
-      },
-      {
-        title: 'Hydration Intake',
-        description: 'Track daily 1.5L water intake goal',
-        completed: false,
-      },
-    ],
-  }));
+  // Map initialData patients dynamically from real clinical records
+  const mappedInitialPatients: PatientData[] = (initialData?.patients || []).map((p: any) => {
+    const patientMeds = (initialData?.medications || []).filter((m: any) => m.patientId === p.id);
+    const pendingMeds = patientMeds.filter((m: any) => m.status === 'PENDING');
+    const patientAppts = (initialData?.appointments || []).filter((a: any) => a.patientId === p.id);
+    const nextAppt = patientAppts.length > 0 ? patientAppts[0] : null;
+
+    return {
+      id: p.id,
+      name: p.fullName || p.name,
+      age: p.age || 75,
+      adherenceRate: p.adherenceRate ?? 100,
+      nextDose: pendingMeds.length > 0 ? (pendingMeds[0].schedule || 'Scheduled Today') : (patientMeds.length > 0 ? 'All doses taken today' : 'No prescriptions active'),
+      pendingDoses: pendingMeds.length,
+      openRequests: (initialData?.assistanceRequests || []).filter((r: any) => r.patientId === p.id && r.status === 'OPEN').length,
+      doctorVisit: nextAppt ? nextAppt.scheduledAt : 'No upcoming visits',
+      doctorName: nextAppt ? nextAppt.doctorName : 'To be scheduled',
+      doctorClinic: nextAppt ? nextAppt.clinic : 'Clinical Facility',
+      visitAcknowledged: Boolean(nextAppt),
+      medications: patientMeds.map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        dosage: m.dosage,
+        form: m.form || 'Tablet',
+        schedule: m.schedule,
+        status: m.status,
+        statusText: m.statusText,
+      })),
+      routines: [
+        {
+          title: 'Daily Blood Pressure Log',
+          description: 'Check resting BP before morning medications',
+          completed: true,
+        },
+        {
+          title: 'Hydration Intake Goal',
+          description: 'Track daily 1.5L fluid intake',
+          completed: false,
+        },
+      ],
+    };
+  });
 
   const [patients, setPatients] = useState<PatientData[]>(mappedInitialPatients);
   const [selectedPatientId, setSelectedPatientId] = useState<string>(
@@ -116,6 +125,13 @@ export function CaretakerDashboardClient({ initialData }: CaretakerDashboardProp
   const [selectedRequestId] = useState<string | null>(null);
   const [addMedModalOpen, setAddMedModalOpen] = useState(false);
   const [registerPatientModalOpen, setRegisterPatientModalOpen] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+
+  // Schedule Appointment form
+  const [apptDoctorName, setApptDoctorName] = useState('');
+  const [apptClinic, setApptClinic] = useState('');
+  const [apptDateTime, setApptDateTime] = useState('');
+  const [apptNotes, setApptNotes] = useState('');
 
   // Add Medication form
   const [medName, setMedName] = useState('');
@@ -193,6 +209,45 @@ export function CaretakerDashboardClient({ initialData }: CaretakerDashboardProp
         mealInstruction: medInstructions,
       });
     });
+  };
+
+  const handleScheduleAppointmentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!apptDoctorName || !apptClinic || !currentPatient) return;
+
+    const scheduledDateStr = apptDateTime || 'Thursday, 10:30 AM';
+    setPatients((prev) =>
+      prev.map((p) =>
+        p.id === currentPatient.id
+          ? {
+              ...p,
+              doctorVisit: scheduledDateStr,
+              doctorName: apptDoctorName,
+              doctorClinic: apptClinic,
+              visitAcknowledged: true,
+            }
+          : p
+      )
+    );
+
+    setScheduleModalOpen(false);
+    setActionNotice(`Doctor visit with ${apptDoctorName} scheduled for ${currentPatient.name}.`);
+    setTimeout(() => setActionNotice(null), 5000);
+
+    startTransition(async () => {
+      await scheduleAppointment({
+        patientId: currentPatient.id,
+        doctorName: apptDoctorName,
+        clinic: apptClinic,
+        scheduledAt: scheduledDateStr,
+        notes: apptNotes,
+      });
+    });
+
+    setApptDoctorName('');
+    setApptClinic('');
+    setApptDateTime('');
+    setApptNotes('');
   };
 
   const handleRegisterPatientSubmit = (e: React.FormEvent) => {
@@ -444,13 +499,23 @@ export function CaretakerDashboardClient({ initialData }: CaretakerDashboardProp
                       Clinical dosages, schedules, and patient adherence records.
                     </CardDescription>
                   </div>
-                  <Button
-                    onClick={() => setAddMedModalOpen(true)}
-                    className="bg-teal-700 hover:bg-teal-800 text-white font-semibold text-xs h-9 px-4"
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    <span>Prescribe Medication</span>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => setScheduleModalOpen(true)}
+                      variant="outline"
+                      className="border-teal-700 text-teal-800 hover:bg-teal-50 font-semibold text-xs h-9 px-3"
+                    >
+                      <CalendarPlus className="h-4 w-4 mr-1.5" />
+                      <span>Schedule Visit</span>
+                    </Button>
+                    <Button
+                      onClick={() => setAddMedModalOpen(true)}
+                      className="bg-teal-700 hover:bg-teal-800 text-white font-semibold text-xs h-9 px-4"
+                    >
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      <span>Prescribe Medication</span>
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {currentPatient.medications.length === 0 ? (
@@ -791,6 +856,99 @@ export function CaretakerDashboardClient({ initialData }: CaretakerDashboardProp
                   className="bg-teal-700 hover:bg-teal-800 text-white font-bold"
                 >
                   {isPending ? 'Prescribing...' : 'Prescribe Medication'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SCHEDULE DOCTOR VISIT MODAL */}
+      {scheduleModalOpen && currentPatient && (
+        <div role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 id="schedule-modal-title" className="text-xl font-bold text-slate-900">
+                Schedule Doctor Visit for {currentPatient.name}
+              </h3>
+              <button
+                type="button"
+                aria-label="Close schedule dialog"
+                onClick={() => setScheduleModalOpen(false)}
+                className="h-10 w-10 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleScheduleAppointmentSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Physician / Specialist Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Dr. Arthur Vance, MD"
+                  value={apptDoctorName}
+                  onChange={(e) => setApptDoctorName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Clinic / Hospital Facility *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. St. Jude Heart & Vascular Centre"
+                  value={apptClinic}
+                  onChange={(e) => setApptClinic(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Scheduled Date &amp; Time
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Thursday, 10:30 AM"
+                  value={apptDateTime}
+                  onChange={(e) => setApptDateTime(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Preparation / Clinical Notes
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Fast for 8 hours prior to blood test"
+                  value={apptNotes}
+                  onChange={(e) => setApptNotes(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setScheduleModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isPending}
+                  className="bg-teal-700 hover:bg-teal-800 text-white font-bold"
+                >
+                  {isPending ? 'Scheduling...' : 'Confirm Appointment'}
                 </Button>
               </div>
             </form>

@@ -139,13 +139,28 @@ class DataStore {
 
     const id = crypto.randomUUID();
     const passwordHash = bcrypt.hashSync(user.password, 10);
+    let assignedPatientId = user.patientId;
+    if (user.role === 'PATIENT' && !assignedPatientId) {
+      const p = this.addPatient({
+        fullName: user.fullName.trim(),
+        dob: '1948-05-15',
+        gender: 'OTHER',
+        emergencyContactName: 'Family Caregiver',
+        emergencyContactPhone: '+1-555-0199',
+        medicalConditions: [],
+        allergies: [],
+        pin: user.pin || '1234',
+      });
+      assignedPatientId = p.id;
+    }
+
     const account: UserAccount = {
       id,
       email: cleanEmail,
       passwordHash,
       fullName: user.fullName.trim(),
       role: user.role,
-      patientId: user.patientId,
+      patientId: assignedPatientId,
       pin: user.pin,
       createdAt: new Date().toISOString(),
     };

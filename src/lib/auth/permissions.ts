@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getKioskSession } from '@/lib/auth/kiosk-session';
 import { getUserSession } from '@/lib/auth/user-session';
+import { dataStore } from '@/lib/data/store';
 
 export type UserRole = 'ADMIN' | 'CARETAKER' | 'FAMILY' | 'PATIENT' | 'SYSTEM';
 
@@ -65,9 +66,15 @@ export async function getTrustedActorContext(): Promise<ServerActorContext | nul
   try {
     const userSession = await getUserSession();
     if (userSession.authenticated && userSession.user) {
+      let patientId: string | undefined = undefined;
+      if (userSession.user.role === 'PATIENT') {
+        const localUser = dataStore.getUserById(userSession.user.userId) || dataStore.getUserByEmail(userSession.user.email);
+        patientId = localUser?.patientId;
+      }
       return {
         type: 'USER',
         userId: userSession.user.userId,
+        patientId,
         role: userSession.user.role,
         name: userSession.user.name,
       };
@@ -80,11 +87,12 @@ export async function getTrustedActorContext(): Promise<ServerActorContext | nul
   try {
     const kiosk = await getKioskSession();
     if (kiosk.authenticated && kiosk.patientId) {
+      const p = dataStore.getPatientById(kiosk.patientId);
       return {
         type: 'PATIENT',
         patientId: kiosk.patientId,
         role: 'PATIENT',
-        name: 'Patient (Kiosk Session)',
+        name: p?.fullName || 'Patient',
       };
     }
   } catch {

@@ -37,83 +37,13 @@ interface AuditRecord {
   details: string;
 }
 
-const INITIAL_PATIENTS: PatientRecord[] = [
-  {
-    id: '11111111-1111-1111-1111-111111111111',
-    name: 'Robert Chen',
-    age: 78,
-    gender: 'MALE',
-    caregiver: 'Nurse Sarah Jenkins',
-    familyContact: 'David Chen (Son)',
-    status: 'ACTIVE',
-    adherence: 92,
-  },
-  {
-    id: '22222222-2222-2222-2222-222222222222',
-    name: 'Margaret Taylor',
-    age: 82,
-    gender: 'FEMALE',
-    caregiver: 'Nurse Sarah Jenkins',
-    familyContact: 'Emily Taylor (Daughter)',
-    status: 'ACTIVE',
-    adherence: 75,
-  },
-  {
-    id: '33333333-3333-3333-3333-333333333333',
-    name: 'Harold Kumar',
-    age: 74,
-    gender: 'MALE',
-    caregiver: 'Nurse Michael Chang',
-    familyContact: 'Sunita Kumar (Wife)',
-    status: 'ACTIVE',
-    adherence: 100,
-  },
-];
-
-const INITIAL_AUDITS: AuditRecord[] = [
-  {
-    id: 'aud-01',
-    time: '2 mins ago',
-    actor: 'Robert Chen',
-    role: 'PATIENT',
-    action: 'STATUS_CHANGE',
-    entity: 'DOSE',
-    details: 'Marked Atorvastatin 20mg as TAKEN via kiosk interface',
-  },
-  {
-    id: 'aud-02',
-    time: '18 mins ago',
-    actor: 'Nurse Sarah Jenkins',
-    role: 'CARETAKER',
-    action: 'UPDATE',
-    entity: 'ASSISTANCE',
-    details: 'Resolved refill assistance request for patient Robert Chen',
-  },
-  {
-    id: 'aud-03',
-    time: '1 hour ago',
-    actor: 'SYSTEM_CRON',
-    role: 'SYSTEM',
-    action: 'CREATE',
-    entity: 'NOTIFICATION',
-    details: 'Dispatched UPCOMING_DOSE notification lease for 3 patients',
-  },
-  {
-    id: 'aud-04',
-    time: '2 hours ago',
-    actor: 'Dr. Eleanor Vance',
-    role: 'ADMIN',
-    action: 'CREATE',
-    entity: 'APPOINTMENT',
-    details: 'Created cardiology evaluation appointment for Robert Chen',
-  },
-];
-
 export interface AdminDashboardProps {
   initialData?: {
     actorName: string;
     totalUsers: number;
     totalPatients: number;
+    caretakersCount?: number;
+    familyCount?: number;
     patients: any[];
     audits: any[];
   };
@@ -127,7 +57,7 @@ export function AdminDashboardClient({ initialData }: AdminDashboardProps) {
     name: p.fullName || p.name,
     age: p.age || 75,
     gender: p.gender || 'OTHER',
-    caregiver: 'Assigned Caregiver',
+    caregiver: 'Assigned Clinical Caregiver',
     familyContact: p.emergencyContactName || 'Family Contact',
     status: 'ACTIVE',
     adherence: p.adherenceRate ?? 100,
@@ -143,8 +73,8 @@ export function AdminDashboardClient({ initialData }: AdminDashboardProps) {
     details: a.details,
   }));
 
-  const [patients, setPatients] = useState<PatientRecord[]>(mappedPatients.length > 0 ? mappedPatients : INITIAL_PATIENTS);
-  const [audits, setAudits] = useState<AuditRecord[]>(mappedAudits.length > 0 ? mappedAudits : INITIAL_AUDITS);
+  const [patients, setPatients] = useState<PatientRecord[]>(mappedPatients);
+  const [audits, setAudits] = useState<AuditRecord[]>(mappedAudits);
   const [filterEntity, setFilterEntity] = useState<string>('ALL');
 
   // Register Patient Modal
@@ -175,7 +105,7 @@ export function AdminDashboardClient({ initialData }: AdminDashboardProps) {
       name: newPatientName,
       age: isNaN(age) ? 75 : age,
       gender: newPatientGender,
-      caregiver: 'Nurse Sarah Jenkins',
+      caregiver: 'Assigned Clinical Caregiver',
       familyContact: newPatientContactName,
       status: 'ACTIVE',
       adherence: 100,
@@ -187,7 +117,7 @@ export function AdminDashboardClient({ initialData }: AdminDashboardProps) {
     const newAudit: AuditRecord = {
       id: `aud-${Date.now()}`,
       time: 'Just now',
-      actor: 'Dr. Eleanor Vance',
+      actor: initialData?.actorName || 'System Administrator',
       role: 'ADMIN',
       action: 'CREATE',
       entity: 'ACCESS',
@@ -223,7 +153,7 @@ export function AdminDashboardClient({ initialData }: AdminDashboardProps) {
     const newAudit: AuditRecord = {
       id: `aud-${Date.now()}`,
       time: 'Just now',
-      actor: 'Dr. Eleanor Vance',
+      actor: initialData?.actorName || 'System Administrator',
       role: 'ADMIN',
       action: 'CREATE',
       entity: 'ACCESS',
@@ -265,28 +195,28 @@ export function AdminDashboardClient({ initialData }: AdminDashboardProps) {
         <DashboardStatCard
           label="Registered Patients"
           value={String(patients.length)}
-          change="+1 this week"
+          change={`${patients.length} active`}
           trend="up"
           iconName="Users"
           variant="default"
         />
         <DashboardStatCard
           label="Active Caretakers"
-          value="14"
+          value={String(initialData?.caretakersCount ?? 1)}
           subtitle="Verified clinical caregivers"
           iconName="HeartHandshake"
           variant="info"
         />
         <DashboardStatCard
           label="Connected Family Members"
-          value="32"
+          value={String(initialData?.familyCount ?? 0)}
           subtitle="Authorized care circles"
           iconName="Users"
           variant="success"
         />
         <DashboardStatCard
           label="Security Audits Logged"
-          value={String(1420 + audits.length - INITIAL_AUDITS.length)}
+          value={String(audits.length)}
           subtitle="Append-only verified"
           iconName="ShieldAlert"
           variant="default"
@@ -334,38 +264,45 @@ export function AdminDashboardClient({ initialData }: AdminDashboardProps) {
             <Badge variant="default">{patients.length} Profiles</Badge>
           </CardHeader>
           <CardContent>
-            <div className="divide-y divide-slate-100">
-              {patients.map((p) => (
-                <div
-                  key={p.id}
-                  className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-base">{p.name}</span>
-                      <span className="text-xs text-slate-500">
-                        {p.age} yrs &bull; {p.gender}
-                      </span>
-                      <Badge variant="success" className="text-[10px] py-0 px-2">
-                        {p.status}
-                      </Badge>
+            {patients.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 space-y-2">
+                <p className="font-semibold text-slate-700 text-sm">No patients registered in the clinical registry yet.</p>
+                <p className="text-xs text-slate-500">Click &ldquo;Register New Patient&rdquo; above to onboard the first individual.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {patients.map((p) => (
+                  <div
+                    key={p.id}
+                    className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-base">{p.name}</span>
+                        <span className="text-xs text-slate-500">
+                          {p.age} yrs &bull; {p.gender}
+                        </span>
+                        <Badge variant="success" className="text-[10px] py-0 px-2">
+                          {p.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Assigned: <span className="font-semibold text-slate-700">{p.caregiver}</span>{' '}
+                        &bull; Family: <span className="text-slate-600">{p.familyContact}</span>
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Assigned: <span className="font-semibold text-slate-700">{p.caregiver}</span>{' '}
-                      &bull; Family: <span className="text-slate-600">{p.familyContact}</span>
-                    </p>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <Badge variant={p.adherence >= 90 ? 'success' : 'warning'}>
+                        {p.adherence}% Adherence
+                      </Badge>
+                      <Button variant="outline" size="sm" className="text-xs font-semibold">
+                        Manage &rarr;
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <Badge variant={p.adherence >= 90 ? 'success' : 'warning'}>
-                      {p.adherence}% Adherence
-                    </Badge>
-                    <Button variant="outline" size="sm" className="text-xs font-semibold">
-                      Manage &rarr;
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -400,20 +337,26 @@ export function AdminDashboardClient({ initialData }: AdminDashboardProps) {
               ))}
             </div>
 
-            <div className="space-y-2.5">
-              {filteredAudits.map((a) => (
-                <div key={a.id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50 text-xs space-y-1">
-                  <div className="flex items-center justify-between font-semibold">
-                    <span className="text-slate-800">{a.actor} ({a.role})</span>
-                    <span className="text-slate-400 text-[10px]">{a.time}</span>
+            {filteredAudits.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                No audit events recorded under this filter yet.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {filteredAudits.map((a) => (
+                  <div key={a.id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50 text-xs space-y-1">
+                    <div className="flex items-center justify-between font-semibold">
+                      <span className="text-slate-800">{a.actor} ({a.role})</span>
+                      <span className="text-slate-400 text-[10px]">{a.time}</span>
+                    </div>
+                    <p className="text-slate-600 text-[11px]">{a.details}</p>
+                    <span className="inline-block px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-mono text-[9px]">
+                      {a.entity} &bull; {a.action}
+                    </span>
                   </div>
-                  <p className="text-slate-600 text-[11px]">{a.details}</p>
-                  <span className="inline-block px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-mono text-[9px]">
-                    {a.entity} &bull; {a.action}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
