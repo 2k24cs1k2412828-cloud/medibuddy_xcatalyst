@@ -13,11 +13,12 @@ import {
   X,
   PhoneCall,
 } from 'lucide-react';
-import { sendFamilyEncouragement } from '@/lib/actions/clinical-data.actions';
+import { sendFamilyEncouragement, familyLinkToPatient } from '@/lib/actions/clinical-data.actions';
 
 export interface FamilyDashboardProps {
   initialData?: {
     actorName: string;
+    patients?: any[];
     patient: any | null;
     medications: any[];
     appointments: any[];
@@ -44,9 +45,32 @@ export function FamilyDashboardClient({ initialData }: FamilyDashboardProps) {
   const [encourageMessage, setEncourageMessage] = useState('');
   const [sentNotice, setSentNotice] = useState<string | null>(null);
 
+  // Connect to patient state
+  const [selectedConnectPatientId, setSelectedConnectPatientId] = useState<string>(
+    initialData?.patients && initialData.patients.length > 0 ? initialData.patients[0].id : ''
+  );
+  const [connectPin, setConnectPin] = useState<string>('');
+  const [connectError, setConnectError] = useState<string | null>(null);
+
   const handleCall = (name: string, phone: string) => {
     setCallNotice(`Calling ${name} (${phone})... Audio connected.`);
     setTimeout(() => setCallNotice(null), 5000);
+  };
+
+  const handleConnectPatient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedConnectPatientId) return;
+    setConnectError(null);
+
+    startTransition(async () => {
+      const res = await familyLinkToPatient(selectedConnectPatientId, connectPin || undefined);
+      if (res.success && res.patient) {
+        setSentNotice(`Successfully connected to ${res.patient.fullName}'s care circle!`);
+        window.location.reload();
+      } else {
+        setConnectError(res.error || 'Failed to connect. Please verify patient PIN.');
+      }
+    });
   };
 
   const handleSendEncouragement = (e: React.FormEvent) => {
@@ -106,16 +130,69 @@ export function FamilyDashboardClient({ initialData }: FamilyDashboardProps) {
       )}
 
       {!patient ? (
-        <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-12 text-center space-y-4">
-          <div className="h-14 w-14 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center mx-auto">
-            <Heart className="h-7 w-7 text-teal-700" />
+        <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-8 sm:p-12 text-center space-y-6 max-w-xl mx-auto shadow-sm">
+          <div className="h-16 w-16 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center mx-auto">
+            <Heart className="h-8 w-8 text-teal-700" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-xl font-bold text-slate-900">No Patient Connected to Family Circle Yet</h3>
+            <h3 className="text-2xl font-bold text-slate-900">Connect to Your Loved One</h3>
             <p className="text-sm text-slate-500 max-w-md mx-auto">
-              Once an elderly patient is registered in the system, their daily medication adherence, dose times, and doctor appointments will appear here in real time.
+              Select your elderly relative or enter their 4-digit Bedside Kiosk PIN to view their live medication adherence and send them encouragement notes.
             </p>
           </div>
+
+          {connectError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg font-semibold">
+              {connectError}
+            </div>
+          )}
+
+          {initialData?.patients && initialData.patients.length > 0 ? (
+            <form onSubmit={handleConnectPatient} className="space-y-4 text-left">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Select Registered Patient
+                </label>
+                <select
+                  value={selectedConnectPatientId}
+                  onChange={(e) => setSelectedConnectPatientId(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold"
+                >
+                  {initialData.patients.map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.fullName || p.name} (Age {p.age})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  4-Digit Patient Kiosk PIN (Optional verification)
+                </label>
+                <input
+                  type="text"
+                  maxLength={4}
+                  placeholder="e.g. 1234"
+                  value={connectPin}
+                  onChange={(e) => setConnectPin(e.target.value.replace(/[^0-9]/g, ''))}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm font-mono tracking-widest text-center"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isPending || !selectedConnectPatientId}
+                className="w-full h-12 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl text-base"
+              >
+                {isPending ? 'Connecting...' : 'Connect to Care Circle'}
+              </Button>
+            </form>
+          ) : (
+            <p className="text-xs text-slate-400">
+              No patients have been registered yet by your clinic administrator. Please contact your administrator.
+            </p>
+          )}
         </div>
       ) : (
         <>

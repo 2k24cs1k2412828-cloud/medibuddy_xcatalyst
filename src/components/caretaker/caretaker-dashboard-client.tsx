@@ -294,8 +294,8 @@ export function CaretakerDashboardClient({ initialData }: CaretakerDashboardProp
         setNewPatientContactPhone('');
         setNewPatientConditions('');
         setNewPatientAllergies('');
-        setActionNotice(`Patient "${added.name}" registered successfully with Kiosk PIN ${newPatientPin}!`);
-        setTimeout(() => setActionNotice(null), 6000);
+        setActionNotice(`Patient "${added.name}" registered! Bedside Kiosk PIN: ${newPatientPin} | Web Login: ${res.patient.loginEmail}`);
+        setTimeout(() => setActionNotice(null), 8000);
       }
     });
   };

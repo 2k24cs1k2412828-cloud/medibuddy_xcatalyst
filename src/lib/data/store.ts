@@ -24,8 +24,13 @@ export interface PatientRecord {
   medicalConditions: string[];
   allergies: string[];
   pin: string;
+  loginEmail: string;
+  loginPassword: string;
   adherenceRate: number;
   caretakerUserId?: string;
+  caretakerName?: string;
+  familyUserIds?: string[];
+  familyNames?: string[];
   createdAt: string;
 }
 
@@ -204,12 +209,25 @@ class DataStore {
     medicalConditions: string[];
     allergies: string[];
     pin?: string;
+    loginEmail?: string;
+    loginPassword?: string;
     caretakerUserId?: string;
   }): PatientRecord {
     const id = crypto.randomUUID();
     const birthYear = new Date(patient.dob).getFullYear();
     const currentYear = new Date().getFullYear();
     const age = isNaN(birthYear) ? 75 : Math.max(0, currentYear - birthYear);
+
+    const cleanUsername = patient.fullName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'patient';
+    const pin = patient.pin || '1234';
+    const loginEmail = (patient.loginEmail || `patient.${cleanUsername}@medicareconnect.com`).trim().toLowerCase();
+    const loginPassword = patient.loginPassword || 'medicare123';
+
+    let caretakerName: string | undefined = undefined;
+    if (patient.caretakerUserId) {
+      const ct = this.getUserById(patient.caretakerUserId);
+      caretakerName = ct?.fullName || 'Assigned Caregiver';
+    }
 
     const record: PatientRecord = {
       id,
@@ -222,21 +240,100 @@ class DataStore {
       emergencyContactPhone: patient.emergencyContactPhone,
       medicalConditions: patient.medicalConditions,
       allergies: patient.allergies,
-      pin: patient.pin || '1234',
+      pin,
+      loginEmail,
+      loginPassword,
       adherenceRate: 100,
       caretakerUserId: patient.caretakerUserId,
+      caretakerName,
+      familyUserIds: [],
+      familyNames: [],
       createdAt: new Date().toISOString(),
     };
 
     this.patients.set(id, record);
+
+    // Automatically provision web sign-in user account for the patient
+    const existingUser = this.users.get(loginEmail);
+    if (!existingUser) {
+      this.users.set(loginEmail, {
+        id: crypto.randomUUID(),
+        email: loginEmail,
+        passwordHash: bcrypt.hashSync(loginPassword, 10),
+        fullName: record.fullName,
+        role: 'PATIENT',
+        patientId: id,
+        pin,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
     this.logAudit(
       patient.caretakerUserId ? `Caretaker (${patient.caretakerUserId})` : 'System',
       'CARETAKER',
       'PATIENT_REGISTERED',
       record.fullName,
-      `Registered new patient ${record.fullName} (Age ${age})`
+      `Registered new patient ${record.fullName} (Age ${age}) with Kiosk PIN ${pin}`
     );
     return record;
+  }
+
+  public assignCaretakerToPatient(patientId: string, caretakerUserId: string): boolean {
+    const p = this.patients.get(patientId);
+    if (!p) return false;
+    p.caretakerUserId = caretakerUserId;
+    const ct = this.getUserById(caretakerUserId);
+    p.caretakerName = ct?.fullName || 'Assigned Caregiver';
+    this.logAudit('Admin', 'ADMIN', 'CARETAKER_ASSIGNED', p.fullName, `Assigned ${p.caretakerName} to patient ${p.fullName}`);
+    return true;
+  }
+
+  public assignFamilyToPatient(patientId: string, familyUserId: string): boolean {
+    const p = this.patients.get(patientId);
+    if (!p) return false;
+    if (!p.familyUserIds) p.familyUserIds = [];
+    if (!p.familyNames) p.familyNames = [];
+    if (!p.familyUserIds.includes(familyUserId)) {
+      p.familyUserIds.push(familyUserId);
+      const fam = this.getUserById(familyUserId);
+      if (fam) {
+        fam.patientId = patientId;
+        p.familyNames.push(fam.fullName);
+      }
+    }
+    this.logAudit('Admin', 'ADMIN', 'FAMILY_LINKED', p.fullName, `Linked family member to patient ${p.fullName}`);
+    return true;
+  }
+
+  public updatePatientCredentials(patientId: string, pin?: string, loginPassword?: string): boolean {
+    const p = this.patients.get(patientId);
+    if (!p) return false;
+    if (pin) {
+      p.pin = pin;
+    }
+    if (loginPassword) {
+      p.loginPassword = loginPassword;
+      const account = this.getUserByEmail(p.loginEmail);
+      if (account) {
+        account.passwordHash = bcrypt.hashSync(loginPassword, 10);
+      }
+    }
+    this.logAudit('Admin', 'ADMIN', 'CREDENTIALS_UPDATED', p.fullName, `Updated credentials for ${p.fullName}`);
+    return true;
+  }
+
+  public linkUserToPatient(userId: string, patientId: string): boolean {
+    const user = this.getUserById(userId);
+    const patient = this.patients.get(patientId);
+    if (!user || !patient) return false;
+
+    user.patientId = patientId;
+    if (user.role === 'CARETAKER') {
+      return this.assignCaretakerToPatient(patientId, userId);
+    } else if (user.role === 'FAMILY') {
+      return this.assignFamilyToPatient(patientId, userId);
+    }
+    return true;
   }
 
   public getPatients(caretakerUserId?: string): PatientRecord[] {

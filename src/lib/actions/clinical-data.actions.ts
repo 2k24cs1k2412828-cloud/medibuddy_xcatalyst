@@ -42,11 +42,15 @@ export async function registerNewPatient(formData: {
   medicalConditions: string[];
   allergies: string[];
   pin?: string;
+  loginEmail?: string;
+  loginPassword?: string;
+  caretakerUserId?: string;
 }) {
   const actor = await getTrustedActorContext();
+  const assignedCaretaker = formData.caretakerUserId || (actor?.role === 'CARETAKER' ? actor?.userId : undefined);
   const patient = dataStore.addPatient({
     ...formData,
-    caretakerUserId: actor?.userId,
+    caretakerUserId: assignedCaretaker,
   });
 
   revalidatePath('/caretaker');
@@ -202,6 +206,8 @@ export async function getAdminDashboardData(): Promise<{
   totalPatients: number;
   caretakersCount: number;
   familyCount: number;
+  caretakers: Array<{ id: string; name: string; email: string }>;
+  familyMembers: Array<{ id: string; name: string; email: string }>;
   patients: PatientRecord[];
   audits: AuditRecord[];
 }> {
@@ -209,17 +215,96 @@ export async function getAdminDashboardData(): Promise<{
   const actorName = actor?.name || 'Administrator';
   const patients = dataStore.getPatients();
   const allUsers = dataStore.getAllUsers();
-  const caretakersCount = allUsers.filter((u) => u.role === 'CARETAKER').length;
-  const familyCount = allUsers.filter((u) => u.role === 'FAMILY').length;
+  const caretakers = allUsers
+    .filter((u) => u.role === 'CARETAKER')
+    .map((u) => ({ id: u.id, name: u.fullName, email: u.email }));
+  const familyMembers = allUsers
+    .filter((u) => u.role === 'FAMILY')
+    .map((u) => ({ id: u.id, name: u.fullName, email: u.email }));
   const audits = dataStore.getAuditLogs(60);
 
   return {
     actorName,
     totalUsers: allUsers.length,
     totalPatients: patients.length,
-    caretakersCount,
-    familyCount,
+    caretakersCount: caretakers.length,
+    familyCount: familyMembers.length,
+    caretakers,
+    familyMembers,
     patients,
     audits,
   };
+}
+
+export async function adminCreateUserAndAssign(formData: {
+  fullName: string;
+  email: string;
+  password: string;
+  role: 'CARETAKER' | 'FAMILY';
+  patientId?: string;
+}) {
+  const account = dataStore.registerUser({
+    fullName: formData.fullName,
+    email: formData.email,
+    password: formData.password,
+    role: formData.role,
+    patientId: formData.patientId,
+  });
+
+  if (formData.patientId) {
+    if (formData.role === 'CARETAKER') {
+      dataStore.assignCaretakerToPatient(formData.patientId, account.id);
+    } else if (formData.role === 'FAMILY') {
+      dataStore.assignFamilyToPatient(formData.patientId, account.id);
+    }
+  }
+
+  revalidatePath('/admin');
+  revalidatePath('/caretaker');
+  revalidatePath('/family');
+  return { success: true, user: account };
+}
+
+export async function adminAssignPatientAccess(
+  patientId: string,
+  caretakerUserId?: string,
+  familyUserId?: string
+) {
+  if (caretakerUserId) {
+    dataStore.assignCaretakerToPatient(patientId, caretakerUserId);
+  }
+  if (familyUserId) {
+    dataStore.assignFamilyToPatient(patientId, familyUserId);
+  }
+  revalidatePath('/admin');
+  revalidatePath('/caretaker');
+  revalidatePath('/family');
+  return { success: true };
+}
+
+export async function adminUpdatePatientCredentials(
+  patientId: string,
+  pin?: string,
+  loginPassword?: string
+) {
+  const updated = dataStore.updatePatientCredentials(patientId, pin, loginPassword);
+  revalidatePath('/admin');
+  revalidatePath('/patient');
+  return { success: updated };
+}
+
+export async function familyLinkToPatient(patientId: string, pin?: string) {
+  const actor = await getTrustedActorContext();
+  if (!actor || !actor.userId) return { success: false, error: 'Unauthorized session' };
+
+  const patient = dataStore.getPatientById(patientId);
+  if (!patient) return { success: false, error: 'Patient not found' };
+
+  if (pin && patient.pin !== pin) {
+    return { success: false, error: 'Incorrect 4-digit Patient PIN verification.' };
+  }
+
+  dataStore.assignFamilyToPatient(patientId, actor.userId);
+  revalidatePath('/family');
+  return { success: true, patient };
 }
