@@ -54,8 +54,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-CREATE TRIGGER trg_validate_appointment_update
-BEFORE UPDATE ON public.appointments
+DROP TRIGGER IF EXISTS trg_validate_appointment_update ON public.appointments;
+CREATE TRIGGER trg_validate_appointment_update BEFORE UPDATE ON public.appointments
 FOR EACH ROW EXECUTE FUNCTION public.validate_appointment_update();
 
 
@@ -94,8 +94,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-CREATE TRIGGER trg_validate_dose_log_update
-BEFORE UPDATE ON public.medication_logs
+DROP TRIGGER IF EXISTS trg_validate_dose_log_update ON public.medication_logs;
+CREATE TRIGGER trg_validate_dose_log_update BEFORE UPDATE ON public.medication_logs
 FOR EACH ROW EXECUTE FUNCTION public.validate_dose_log_update();
 
 
@@ -108,8 +108,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-CREATE TRIGGER trg_protect_activity_logs
-BEFORE UPDATE OR DELETE ON public.activity_logs
+DROP TRIGGER IF EXISTS trg_protect_activity_logs ON public.activity_logs;
+CREATE TRIGGER trg_protect_activity_logs BEFORE UPDATE OR DELETE ON public.activity_logs
 FOR EACH ROW EXECUTE FUNCTION public.enforce_append_only_audit();
 
 
@@ -157,8 +157,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-CREATE TRIGGER trg_set_audit_actor_context
-BEFORE INSERT ON public.activity_logs
+DROP TRIGGER IF EXISTS trg_set_audit_actor_context ON public.activity_logs;
+CREATE TRIGGER trg_set_audit_actor_context BEFORE INSERT ON public.activity_logs
 FOR EACH ROW EXECUTE FUNCTION public.set_audit_actor_context();
 
 
@@ -206,6 +206,6 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-CREATE TRIGGER trg_on_patient_profile_created
-AFTER INSERT ON public.patient_profiles
+DROP TRIGGER IF EXISTS trg_on_patient_profile_created ON public.patient_profiles;
+CREATE TRIGGER trg_on_patient_profile_created AFTER INSERT ON public.patient_profiles
 FOR EACH ROW EXECUTE FUNCTION public.on_patient_profile_created();
